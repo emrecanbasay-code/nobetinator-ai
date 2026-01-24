@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DARK PRO CSS TASARIMI ---
+# --- DARK PRO CSS TASARIMI (ESKİ SEVDİĞİN TASARIM) ---
 st.markdown("""
 <style>
     .stApp { background-color: #0f172a !important; }
@@ -72,6 +72,9 @@ st.markdown("""
 
 # --- YARDIMCI FONKSİYONLAR ---
 def get_storage_key(y, m): return f"{y}_{m}"
+
+def normalize_col(col_name):
+    return str(col_name).strip()
 
 def save_current_month_data():
     if 'db' not in st.session_state: st.session_state.db = {}
@@ -214,24 +217,25 @@ with t1:
                 if submitted_daily and up_daily:
                     try:
                         df_d = pd.read_excel(up_daily, engine='openpyxl')
-                        # Sütun temizliği
-                        df_d.columns = [str(c).strip() for c in df_d.columns]
+                        df_d.columns = [normalize_col(c) for c in df_d.columns]
                         
-                        if len(df_d.columns) >= 3:
+                        # Esnek Sütun Kontrolü
+                        if len(df_d.columns) >= 2: # En az Gün ve bir ihtiyaç olmalı
                             for idx, row in df_d.iterrows():
                                 try:
+                                    # İlk sütun gün, ikinci 24h, üçüncü varsa 16h
                                     d_val = int(row.iloc[0])
-                                    need_24 = int(row.iloc[1])
-                                    need_16 = int(row.iloc[2])
                                     if 1 <= d_val <= num_days:
-                                        st.session_state.daily_needs_24h[d_val] = need_24
-                                        st.session_state.daily_needs_16h[d_val] = need_16
+                                        if len(row) > 1: st.session_state.daily_needs_24h[d_val] = int(row.iloc[1])
+                                        if len(row) > 2: st.session_state.daily_needs_16h[d_val] = int(row.iloc[2])
                                 except: pass
+                            
                             st.success("✅ Günlük ihtiyaçlar başarıyla yüklendi!")
                             st.session_state.editor_key += 1
+                            # BU SATIR KRİTİK: YÜKLEME SONRASI SAYFAYI YENİLE Kİ TABLO GÜNCELLENSİN
                             st.rerun()
                         else:
-                            st.error("Excel formatı geçersiz. Şablonu kullanın.")
+                            st.error("Excel formatı anlaşılamadı. Lütfen şablonu kullanın.")
                     except Exception as e:
                         st.error(f"Hata: {e}")
 
@@ -289,24 +293,34 @@ with t2:
                 if submit_quota and uploaded_quotas:
                     try:
                         df_up = pd.read_excel(uploaded_quotas, engine='openpyxl')
-                        # Sütun isimlerini normalize et (boşluk sil, küçük harf yap vs)
-                        df_up.columns = [str(c).strip() for c in df_up.columns]
+                        df_up.columns = [normalize_col(c) for c in df_up.columns]
                         
-                        # Kontrol edilecek sütunlar (esnek kontrol)
-                        required = ["Dr", "Max 24h", "Max 16h"]
-                        if all(c in df_up.columns for c in required):
+                        # İsim eşleştirme sözlüğü (büyük/küçük harf duyarsız)
+                        doc_map = {d.lower().strip(): d for d in st.session_state.doctors}
+                        
+                        # Sütun kontrolü
+                        col_dr = next((c for c in df_up.columns if "dr" in c.lower()), None)
+                        col_24 = next((c for c in df_up.columns if "24" in c), None)
+                        col_16 = next((c for c in df_up.columns if "16" in c), None)
+                        
+                        if col_dr and col_24:
                             count = 0
                             for idx, row in df_up.iterrows():
-                                dname = str(row["Dr"]).strip()
-                                if dname in st.session_state.doctors:
-                                    st.session_state.quotas_24h[dname] = int(row["Max 24h"])
-                                    st.session_state.quotas_16h[dname] = int(row["Max 16h"])
-                                    count += 1
+                                dname_raw = str(row[col_dr]).lower().strip()
+                                if dname_raw in doc_map:
+                                    real_name = doc_map[dname_raw]
+                                    try:
+                                        st.session_state.quotas_24h[real_name] = int(row[col_24])
+                                        if col_16: st.session_state.quotas_16h[real_name] = int(row[col_16])
+                                        count += 1
+                                    except: pass
+                            
                             st.success(f"✅ {count} doktorun kotası güncellendi!")
                             st.session_state.editor_key += 1
+                            # BU SATIR KRİTİK
                             st.rerun()
                         else:
-                            st.error(f"Sütunlar bulunamadı. Gerekli: {required}. Dosyadaki: {list(df_up.columns)}")
+                            st.error(f"Sütunlar bulunamadı. Dosyada 'Dr' ve '24' içeren başlıklar olmalı.")
                     except Exception as e: st.error(f"Hata: {e}")
 
     # Tablo
@@ -360,38 +374,40 @@ with t3:
                 if submit_const and up_const:
                     try:
                         df_c = pd.read_excel(up_const, engine='openpyxl')
-                        # Kolonları string yap ve temizle
-                        df_c.columns = [str(c).strip() for c in df_c.columns]
+                        df_c.columns = [normalize_col(c) for c in df_c.columns]
                         
-                        processed_count = 0
-                        if "Dr" in df_c.columns:
+                        doc_map = {d.lower().strip(): d for d in st.session_state.doctors}
+                        col_dr = next((c for c in df_c.columns if "dr" in c.lower()), None)
+                        
+                        if col_dr:
+                            processed_count = 0
                             for idx, row in df_c.iterrows():
-                                doc_name = str(row["Dr"]).strip()
-                                if doc_name in st.session_state.doctors:
+                                dname_raw = str(row[col_dr]).lower().strip()
+                                if dname_raw in doc_map:
+                                    real_name = doc_map[dname_raw]
+                                    
                                     for day in range(1, num_days + 1):
                                         d_col = str(day)
                                         if d_col in df_c.columns:
                                             raw_val = row[d_col]
-                                            if pd.isna(raw_val): val = ""
-                                            else: val = str(raw_val).strip().upper()
-                                            
-                                            if val in ["24", "16", "X"]:
-                                                st.session_state.manual_constraints[f"{doc_name}_{day}"] = val
-                                                if val == "24":
-                                                    for off in range(1, rest_days_24h+1):
-                                                        if day+off <= num_days: 
-                                                            st.session_state.manual_constraints[f"{doc_name}_{day+off}"] = "X"
-                                            elif val == "":
-                                                if f"{doc_name}_{day}" in st.session_state.manual_constraints:
-                                                    del st.session_state.manual_constraints[f"{doc_name}_{day}"]
+                                            if pd.notna(raw_val):
+                                                val = str(raw_val).strip().upper()
+                                                if val in ["24", "16", "X"]:
+                                                    st.session_state.manual_constraints[f"{real_name}_{day}"] = val
+                                                    if val == "24":
+                                                        for off in range(1, rest_days_24h+1):
+                                                            if day+off <= num_days: 
+                                                                st.session_state.manual_constraints[f"{real_name}_{day+off}"] = "X"
+                                                elif val == "":
+                                                    k = f"{real_name}_{day}"
+                                                    if k in st.session_state.manual_constraints:
+                                                        del st.session_state.manual_constraints[k]
                                     processed_count += 1
                             
-                            if processed_count > 0:
-                                st.success(f"✅ {processed_count} doktor kısıtı yüklendi!")
-                                st.session_state.editor_key += 1
-                                st.rerun()
-                            else:
-                                st.warning("Doktor isimleri eşleşmedi.")
+                            st.success(f"✅ {processed_count} doktor kısıtı yüklendi!")
+                            st.session_state.editor_key += 1
+                            # BU SATIR KRİTİK
+                            st.rerun()
                         else:
                             st.error("Dosyada 'Dr' sütunu bulunamadı.")
                     except Exception as e:
