@@ -229,6 +229,7 @@ with t1:
                                 except: pass
                             st.success("✅ Günlük ihtiyaçlar başarıyla yüklendi!")
                             st.session_state.editor_key += 1
+                            st.rerun()
                         else:
                             st.error("Excel formatı geçersiz. Şablonu kullanın.")
                     except Exception as e:
@@ -303,6 +304,7 @@ with t2:
                                     count += 1
                             st.success(f"✅ {count} doktorun kotası güncellendi!")
                             st.session_state.editor_key += 1
+                            st.rerun()
                         else:
                             st.error(f"Sütunlar bulunamadı. Gerekli: {required}. Dosyadaki: {list(df_up.columns)}")
                     except Exception as e: st.error(f"Hata: {e}")
@@ -387,6 +389,7 @@ with t3:
                             if processed_count > 0:
                                 st.success(f"✅ {processed_count} doktor kısıtı yüklendi!")
                                 st.session_state.editor_key += 1
+                                st.rerun()
                             else:
                                 st.warning("Doktor isimleri eşleşmedi.")
                         else:
