@@ -2,8 +2,5 @@ streamlit
 pandas
 numpy
 ortools
-
-xlsxwriter
-Plaintext
-
 openpyxl
+xlsxwriter
