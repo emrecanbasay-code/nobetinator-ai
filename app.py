@@ -11,81 +11,105 @@ import xlsxwriter
 # --- SAYFA VE TASARIM AYARLARI ---
 st.set_page_config(
     page_title="Nobetinator AI",
-    page_icon="🤖",
+    page_icon="🌑",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CSS İLE MODERN GÖRÜNÜM (DARK MODE UYUMLU) ---
+# --- DARK PRO CSS TASARIMI (Görseldeki Temaya Uygun) ---
 st.markdown("""
 <style>
-    /* 1. ANA ARKA PLAN VE GENEL YAZI RENGİ */
+    /* 1. ANA ARKA PLAN (Derin Lacivert/Siyah) */
     .stApp { 
-        background-color: #f0f2f6; 
+        background-color: #0f172a !important; 
     }
     
-    /* Tüm yazıları zorla koyu renk yap (Dark mode çakışmasını önler) */
-    .stApp, .stMarkdown, h1, h2, h3, h4, p, span, div {
-        color: #1e272e !important;
+    /* 2. GENEL YAZI RENGİ (Kırık Beyaz - Göz yormaz) */
+    h1, h2, h3, h4, h5, h6, p, span, div, label {
+        color: #e2e8f0 !important;
     }
 
-    /* 2. SIDEBAR (YAN MENÜ) TASARIMI */
+    /* 3. SIDEBAR (Daha açık bir lacivert tonu) */
     [data-testid="stSidebar"] { 
-        background-color: #1e272e !important; 
-    }
-    /* Sidebar içindeki yazılar AÇIK renk olmalı */
-    [data-testid="stSidebar"] * { 
-        color: #d2dae2 !important; 
+        background-color: #1e293b !important; 
+        border-right: 1px solid #334155;
     }
     
-    /* 3. KARTLAR VE KUTULAR */
+    /* 4. KARTLAR VE KUTULAR (Panel Görünümü) */
     .css-card { 
-        background-color: white !important; 
-        padding: 25px; 
-        border-radius: 15px; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+        background-color: #1e293b !important; 
+        padding: 20px; 
+        border-radius: 12px; 
+        border: 1px solid #334155;
         margin-bottom: 20px; 
-        border-left: 6px solid #0fb9b1; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     }
     
-    /* 4. METRİK KUTULARI (Tepedeki Sayılar) */
+    /* 5. METRİK KUTULARI (Dashboard Sayıları) */
     div[data-testid="stMetric"] { 
-        background-color: #ffffff !important; 
-        border: 1px solid #dcdde1; 
+        background-color: #1e293b !important; 
+        border: 1px solid #334155; 
         padding: 15px; 
-        border-radius: 12px; 
-        text-align: center; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-    /* Metrik etiketleri (Başlıklar) */
-    div[data-testid="stMetricLabel"] > div {
-        color: #636e72 !important;
-    }
-    /* Metrik değerleri (Sayılar) */
-    div[data-testid="stMetricValue"] > div {
-        color: #2d3436 !important;
-    }
-
-    /* 5. BUTONLAR */
-    .stButton>button { 
-        background-color: #0fb9b1 !important; 
-        color: white !important; 
         border-radius: 10px; 
+        text-align: center;
+    }
+    /* Metrik Etiketleri */
+    div[data-testid="stMetricLabel"] > div { color: #94a3b8 !important; }
+    /* Metrik Değerleri */
+    div[data-testid="stMetricValue"] > div { color: #38bdf8 !important; } /* Açık Mavi Rakamlar */
+
+    /* 6. BUTONLAR (Parlak Elektrik Mavisi - Görseldeki gibi) */
+    .stButton>button { 
+        background-color: #3b82f6 !important; 
+        color: white !important; 
+        border-radius: 8px; 
         border: none; 
         padding: 0.6rem 1.2rem; 
         font-weight: 600; 
-        transition: all 0.3s ease; 
+        box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+        transition: all 0.2s ease; 
     }
     .stButton>button:hover { 
-        background-color: #05c46b !important; 
-        color: white !important;
+        background-color: #2563eb !important; 
         transform: translateY(-2px);
+        box-shadow: 0 6px 8px rgba(59, 130, 246, 0.4);
+    }
+    /* İkincil Butonlar (Daha gri) */
+    div[data-testid="stFileUploader"] button {
+        background-color: #475569 !important;
+    }
+
+    /* 7. TABLOLAR VE INPUTLAR */
+    div[data-testid="stDataEditor"] {
+        background-color: #1e293b; 
+        border-radius: 10px;
+        border: 1px solid #334155;
+    }
+    /* Tablo içi yazı renklerini zorla beyaz yap */
+    div[data-testid="stDataEditor"] * {
+        color: #e2e8f0 !important;
+        background-color: #1e293b !important;
     }
     
-    /* 6. TABLO VE DATA EDITOR İÇİ */
-    div[data-testid="stDataEditor"] * {
-        color: #1e272e !important;
+    /* 8. TABLAR (Sekmeler) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: transparent;
     }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1e293b;
+        border-radius: 5px;
+        color: #94a3b8;
+        border: 1px solid #334155;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #3b82f6 !important;
+        color: white !important;
+        border: none;
+    }
+    
+    /* 9. HEADER GİZLEME (Daha temiz görünüm) */
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -124,6 +148,7 @@ if 'doctors' not in st.session_state: st.session_state.doctors = ["Dr. Ahmet", "
 if 'year' not in st.session_state: st.session_state.year = datetime.now().year
 if 'month' not in st.session_state: st.session_state.month = datetime.now().month
 if 'db' not in st.session_state: st.session_state.db = {}
+if 'editor_key' not in st.session_state: st.session_state.editor_key = 0
 
 # Sözlük Kontrolleri
 if 'daily_needs_24h' not in st.session_state: st.session_state.daily_needs_24h = {}
@@ -134,8 +159,8 @@ if 'manual_constraints' not in st.session_state: st.session_state.manual_constra
 
 # --- SIDEBAR MENÜSÜ ---
 with st.sidebar:
-    st.title("🤖 Nobetinator AI")
-    st.caption("Yapay Zeka Destekli Planlama")
+    st.title("🌑 Nobetinator Pro")
+    st.caption("AI Destekli Nöbet Planlama")
     st.markdown("---")
     
     # 1. Tarih
@@ -156,17 +181,16 @@ with st.sidebar:
     
     # 2. Kurallar
     st.subheader("⚙️ Kurallar")
-    rest_days_24h = st.slider("24h Sonrası Yasaklı Gün", 1, 5, 2, help="24 saat nöbetten sonra kaç gün boş kalsın?")
+    rest_days_24h = st.slider("24h Sonrası Yasaklı Gün", 1, 5, 2)
     
     st.markdown("---")
     
     # 3. Mod Seçimi
-    st.subheader("🎛️ AI Modu")
+    st.subheader("🎛️ AI Stratejisi")
     solver_mode = st.radio(
-        "Strateji:", 
+        "Mod:", 
         ["Katı Kurallar (Tam Uyum)", "Esnek Mod (Tavan Sınır)"], 
-        index=1,
-        help="Esnek Mod: Belirlediğin sayıyı ASLA aşmaz, gerekirse daha az yazar."
+        index=1
     )
     
     st.markdown("---")
@@ -185,11 +209,11 @@ with st.sidebar:
             st.rerun()
 
     # 5. Yedekleme
-    with st.expander("💾 Veri Yedekleme"):
+    with st.expander("💾 Veri İşlemleri"):
         if st.button("Yedek İndir (JSON)"):
             save_current_month_data()
             d_out = {"doctors": st.session_state.doctors, "db": {str(k): v for k, v in st.session_state.db.items()}, "current_year": st.session_state.year, "current_month": st.session_state.month}
-            st.download_button("İndir", json.dumps(d_out, default=str), "nobetinator_backup.json")
+            st.download_button("📥 JSON İndir", json.dumps(d_out, default=str), "nobetinator_backup.json")
             
         upl = st.file_uploader("Yedek Yükle", type=['json'])
         if upl:
@@ -200,27 +224,26 @@ with st.sidebar:
             except: pass
 
 # --- ANA EKRAN ---
-st.markdown(f"## 🗓️ {calendar.month_name[st.session_state.month]} {st.session_state.year} Planlaması")
+st.markdown(f"### 🗓️ {calendar.month_name[st.session_state.month]} {st.session_state.year} Dashboard")
 
-# Dashboard
+# Dashboard Metrikleri
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Toplam Gün", num_days)
 c2.metric("Personel Sayısı", len(st.session_state.doctors))
-c3.metric("Çalışma Modu", "Esnek (Tavan)" if "Esnek" in solver_mode else "Katı")
-c4.metric("Aktif Kısıtlar", len(st.session_state.manual_constraints))
+c3.metric("Mod", "Esnek" if "Esnek" in solver_mode else "Katı")
+c4.metric("Kısıtlar", len(st.session_state.manual_constraints))
 
 st.write("") # Boşluk
 
 # Sekmeler
-t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR (LİMİT)", "🔒 KISITLAR (X)", "🚀 SONUÇ & EXCEL"])
+t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR (LİMİT)", "🔒 KISITLAR (X)", "🚀 SONUÇ & RAPOR"])
 
 # TAB 1: GÜNLÜK İHTİYAÇLAR
 with t1:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.info("Hangi gün kaç personele ihtiyaç var?")
+    st.info("ℹ️ Varsayılan olarak her gün 1 kişi atanmıştır. Değiştirmek için tabloyu düzenleyin.")
     
     # Veri Hazırlığı
-    # Her gün için kayıt yoksa varsayılan 1 ata
     for d in range(1, num_days+1):
         if d not in st.session_state.daily_needs_24h: st.session_state.daily_needs_24h[d] = 1
         if d not in st.session_state.daily_needs_16h: st.session_state.daily_needs_16h[d] = 1
@@ -229,11 +252,11 @@ with t1:
     
     with st.form("needs"):
         edf = st.data_editor(pd.DataFrame(d_data), key="need_ed", use_container_width=True, hide_index=True, column_config={"Gün": st.column_config.NumberColumn(disabled=True), "Tarih": st.column_config.TextColumn(disabled=True)})
-        if st.form_submit_button("💾 İhtiyaçları Kaydet", type="primary"):
+        if st.form_submit_button("💾 İhtiyaçları Kaydet"):
             for i, r in edf.iterrows():
                 st.session_state.daily_needs_24h[r["Gün"]] = int(r["24h"])
                 st.session_state.daily_needs_16h[r["Gün"]] = int(r["16h"])
-            st.success("Kaydedildi!")
+            st.success("Güncellendi!")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -241,65 +264,60 @@ with t1:
 with t2:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     
-    # --- CANLI HESAPLAMA ---
-    st.write("#### 📊 Kota Durumu")
-    
-    # 1. Toplam İhtiyaç (Tab 1'den gelen)
+    # İstatistikler
     total_need_24 = sum(st.session_state.daily_needs_24h.get(d, 1) for d in range(1, num_days+1))
     total_need_16 = sum(st.session_state.daily_needs_16h.get(d, 1) for d in range(1, num_days+1))
-    
-    # 2. Şu an Dağıtılan (Bu sayfadaki veriler)
     current_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
     current_dist_16 = sum(st.session_state.quotas_16h.get(d, 0) for d in st.session_state.doctors)
     
-    # 3. Gösterge
-    kc1, kc2 = st.columns(2)
-    kc1.metric("Toplam 24h İhtiyacı", f"{total_need_24}", delta=f"{current_dist_24 - total_need_24} Fark", delta_color="inverse")
-    kc2.metric("Toplam 16h İhtiyacı", f"{total_need_16}", delta=f"{current_dist_16 - total_need_16} Fark", delta_color="inverse")
+    col_q1, col_q2 = st.columns(2)
+    col_q1.metric("24h İhtiyaç / Dağıtılan", f"{total_need_24} / {current_dist_24}", delta=f"{current_dist_24 - total_need_24}", delta_color="off")
+    col_q2.metric("16h İhtiyaç / Dağıtılan", f"{total_need_16} / {current_dist_16}", delta=f"{current_dist_16 - total_need_16}", delta_color="off")
     
     st.markdown("---")
     
     # --- CSV IMPORT ALANI ---
-    with st.expander("📤 CSV ile Kotaları Yükle"):
-        st.caption("Eğer çok doktor varsa tek tek girmek yerine Excel/CSV yükleyebilirsiniz.")
+    with st.expander("📤 Toplu Yükleme (CSV/Excel)", expanded=True):
+        col_dl, col_up = st.columns([1, 2])
+        with col_dl:
+            sample_data = [{"Dr": d, "Max 24h": 0, "Max 16h": 0} for d in st.session_state.doctors]
+            sample_df = pd.DataFrame(sample_data)
+            csv_buffer = sample_df.to_csv(index=False).encode('utf-8')
+            st.download_button(label="📥 Şablon İndir", data=csv_buffer, file_name="nobet_kotasi_sablon.csv", mime="text/csv", use_container_width=True)
         
-        # Şablon İndirme
-        sample_df = pd.DataFrame({"Dr": ["Dr. Ahmet", "Dr. Ayşe"], "Max 24h": [5, 4], "Max 16h": [2, 1]})
-        csv_buffer = sample_df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 Örnek CSV Şablonu İndir", data=csv_buffer, file_name="kota_sablonu.csv", mime="text/csv")
+        with col_up:
+            uploaded_quotas = st.file_uploader("CSV Dosyasını Buraya Bırakın", type=["csv"], label_visibility="collapsed")
         
-        # Yükleme
-        uploaded_quotas = st.file_uploader("CSV Dosyanı Buraya Bırak", type=["csv"])
         if uploaded_quotas:
             try:
                 df_up = pd.read_csv(uploaded_quotas)
-                # Sütun kontrolü
-                req_cols = ["Dr", "Max 24h", "Max 16h"]
-                if all(col in df_up.columns for col in req_cols):
+                if all(col in df_up.columns for col in ["Dr", "Max 24h", "Max 16h"]):
+                    match_count = 0
                     for idx, row in df_up.iterrows():
-                        dname = str(row["Dr"])
-                        # Eğer listede varsa güncelle
+                        dname = str(row["Dr"]).strip()
                         if dname in st.session_state.doctors:
                             st.session_state.quotas_24h[dname] = int(row["Max 24h"])
                             st.session_state.quotas_16h[dname] = int(row["Max 16h"])
-                    st.success("✅ Kotalar başarıyla yüklendi! Tablo güncelleniyor...")
-                    st.rerun()
-                else:
-                    st.error(f"❌ Hatalı Format! Sütun isimleri şunlar olmalı: {req_cols}")
+                            match_count += 1
+                    if match_count > 0:
+                        st.success(f"✅ {match_count} doktor güncellendi!")
+                        st.session_state.editor_key += 1 
+                        st.rerun()
             except Exception as e:
-                st.error(f"Dosya okunamadı: {e}")
+                st.error(f"Hata: {e}")
 
     # --- TABLO ALANI ---
-    if "Esnek" in solver_mode:
-        st.warning("⚠️ **Esnek Mod:** Bu sayılar **ÜST LİMİTTİR**. AI asla bu sayıdan fazla nöbet yazmaz.")
-    else:
-        st.info("ℹ️ **Katı Mod:** AI tam olarak bu sayı kadar nöbet yazmaya çalışır.")
-        
     q_data = [{"Dr": d, "Max 24h": st.session_state.quotas_24h.get(d, 0), "Max 16h": st.session_state.quotas_16h.get(d, 0)} for d in st.session_state.doctors]
     
     with st.form("quotas"):
-        qdf = st.data_editor(pd.DataFrame(q_data), key="quota_ed", use_container_width=True, hide_index=True, column_config={"Dr": st.column_config.TextColumn(disabled=True)})
-        if st.form_submit_button("💾 Hedefleri Kaydet", type="primary"):
+        qdf = st.data_editor(
+            pd.DataFrame(q_data), 
+            key=f"quota_ed_{st.session_state.editor_key}", 
+            use_container_width=True, 
+            hide_index=True, 
+            column_config={"Dr": st.column_config.TextColumn(disabled=True)}
+        )
+        if st.form_submit_button("💾 Hedefleri Kaydet"):
             for i, r in qdf.iterrows():
                 st.session_state.quotas_24h[r["Dr"]] = int(r["Max 24h"])
                 st.session_state.quotas_16h[r["Dr"]] = int(r["Max 16h"])
@@ -307,10 +325,10 @@ with t2:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 3: MANUEL KISITLAR (AKILLI)
+# TAB 3: MANUEL KISITLAR
 with t3:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.write(f"💡 **Akıllı Kısıt:** '24' seçerseniz, sonraki **{rest_days_24h} günü** otomatik kapatır.")
+    st.write(f"💡 **İpucu:** '24' seçerseniz, sonraki **{rest_days_24h} gün** otomatik bloklanır (X).")
     
     c_data = []
     for doc in st.session_state.doctors:
@@ -334,7 +352,7 @@ with t3:
             if val != st.session_state.manual_constraints.get(k, ""):
                 if val in ["24", "16", "X"]:
                     st.session_state.manual_constraints[k] = val
-                    if val == "24": # Oto Blokaj
+                    if val == "24":
                         for off in range(1, rest_days_24h+1):
                             if d+off <= num_days: st.session_state.manual_constraints[f"{doc}_{d+off}"] = "X"
                 else:
@@ -346,40 +364,36 @@ with t3:
 # TAB 4: HESAPLAMA
 with t4:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    if st.button("🚀 Nobetinator AI Çalıştır", type="primary", use_container_width=True):
-        with st.spinner("Nobetinator hesaplıyor..."):
+    if st.button("🚀 Nöbetleri Dağıt (AI)", type="primary", use_container_width=True):
+        with st.spinner("Yapay zeka olasılıkları hesaplıyor..."):
             model = cp_model.CpModel()
             docs = st.session_state.doctors
             days = range(1, num_days+1)
             x24, x16 = {}, {}
 
-            # Değişken Tanımı
             for d in docs:
                 for t in days:
                     x24[(d,t)] = model.NewBoolVar(f'x24_{d}_{t}')
                     x16[(d,t)] = model.NewBoolVar(f'x16_{d}_{t}')
                     model.Add(x24[(d,t)] + x16[(d,t)] <= 1)
 
-            # 1. İhtiyaçlar (Sert Kısıt)
+            # 1. İhtiyaçlar
             for t in days:
-                # İhtiyaç tablosundan veriyi al, yoksa varsayılan 1 kullan
                 need24 = st.session_state.daily_needs_24h.get(t, 1)
                 need16 = st.session_state.daily_needs_16h.get(t, 1)
                 model.Add(sum(x24[(d,t)] for d in docs) == need24)
                 model.Add(sum(x16[(d,t)] for d in docs) == need16)
 
-            # 2. Dinlenme (Sert Kısıt)
+            # 2. Dinlenme
             for d in docs:
-                # Ertesi gün boş
                 for t in range(1, num_days):
                     model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
-                # 24h sonrası blokaj
                 win = rest_days_24h + 1
                 for i in range(len(days) - win + 1):
                     wd = [days[j] for j in range(i, i+win)]
                     model.Add(sum(x24[(d,k)] for k in wd) <= 1)
 
-            # 3. Manuel Kısıtlar (Sert Kısıt)
+            # 3. Kısıtlar
             for d in docs:
                 for t in days:
                     c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
@@ -389,45 +403,35 @@ with t4:
                         model.Add(x24[(d,t)] == 0)
                         model.Add(x16[(d,t)] == 0)
 
-            # 4. Kotalar (TAVAN SINIR MANTIĞI)
+            # 4. Kotalar
             deviations = []
             for d in docs:
-                # 24h
                 tot24 = sum(x24[(d,t)] for t in days)
                 tgt24 = st.session_state.quotas_24h.get(d, 0)
-                
-                if "Katı" in solver_mode:
-                    model.Add(tot24 <= tgt24) # Aşamaz
+                if "Katı" in solver_mode: model.Add(tot24 <= tgt24)
                 else:
-                    # Esnek Mod: ASLA AŞMA (<=), ama farkı minimize et
                     model.Add(tot24 <= tgt24) 
                     diff = model.NewIntVar(0, 31, f'd24_{d}')
                     model.Add(diff == tgt24 - tot24)
                     deviations.append(diff)
                 
-                # 16h
                 tot16 = sum(x16[(d,t)] for t in days)
                 tgt16 = st.session_state.quotas_16h.get(d, 0)
-                
-                if "Katı" in solver_mode:
-                    model.Add(tot16 <= tgt16)
+                if "Katı" in solver_mode: model.Add(tot16 <= tgt16)
                 else:
                     model.Add(tot16 <= tgt16)
                     diff = model.NewIntVar(0, 31, f'd16_{d}')
                     model.Add(diff == tgt16 - tot16)
                     deviations.append(diff)
             
-            if "Esnek" in solver_mode:
-                model.Minimize(sum(deviations))
+            if "Esnek" in solver_mode: model.Minimize(sum(deviations))
 
-            # Çözüm
             solver = cp_model.CpSolver()
             status = solver.Solve(model)
 
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-                st.success("✅ Nobetinator Başarıyla Çözdü!")
+                st.success("✅ Çizelge Oluşturuldu!")
                 
-                # Veri Hazırlığı
                 res_mx, res_lst = [], []
                 stats = {d: {"24h":0, "16h":0} for d in docs}
                 
@@ -447,7 +451,6 @@ with t4:
                     res_mx.append(rm)
                     res_lst.append({"Tarih": dstr, "24 Saat": ", ".join(l24), "16 Saat": ", ".join(l16)})
                 
-                # İstatistik Tablosu
                 stat_data = []
                 for d in docs:
                     t24 = st.session_state.quotas_24h.get(d, 0)
@@ -459,37 +462,27 @@ with t4:
                         "Durum": "✅ Tam" if (stats[d]["24h"]==t24 and stats[d]["16h"]==t16) else "⚠️ Eksik"
                     })
                 
-                # GÖSTERİM
                 df_mx = pd.DataFrame(res_mx)
                 df_ls = pd.DataFrame(res_lst)
                 df_st = pd.DataFrame(stat_data)
                 
-                st.subheader("📊 Analiz Raporu")
+                st.write("#### 📊 Dağılım İstatistikleri")
                 st.dataframe(df_st, use_container_width=True)
                 
-                vt1, vt2 = st.tabs(["Renkli Tablo", "Günlük Liste"])
+                vt1, vt2 = st.tabs(["Renkli Genel Tablo", "Günlük Liste Görünümü"])
                 with vt1:
-                    st.dataframe(df_mx.style.applymap(lambda v: 'background-color: #ff6b6b; color: white' if v=='24h' else ('background-color: #1dd1a1; color: white' if v=='16h' else '')), use_container_width=True)
+                    st.dataframe(df_mx.style.applymap(lambda v: 'background-color: #ef4444; color: white' if v=='24h' else ('background-color: #22c55e; color: white' if v=='16h' else '')), use_container_width=True)
                 with vt2:
                     st.dataframe(df_ls, use_container_width=True)
                 
-                # EXCEL İNDİR
                 buf = io.BytesIO()
                 with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
-                    df_ls.to_excel(writer, sheet_name='Günlük Liste', index=False)
-                    df_mx.to_excel(writer, sheet_name='Genel Çizelge', index=False)
-                    df_st.to_excel(writer, sheet_name='İstatistik', index=False)
-                    
-                    # Format
-                    wb = writer.book
-                    ws = writer.sheets['Günlük Liste']
-                    fmt = wb.add_format({'text_wrap': True, 'valign': 'top'})
-                    ws.set_column('A:A', 15)
-                    ws.set_column('B:C', 40, fmt)
-                    
-                st.download_button("📥 Nobetinator Excel'i İndir", buf.getvalue(), "nobetinator_cizelge.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+                    df_ls.to_excel(writer, sheet_name='Liste', index=False)
+                    df_mx.to_excel(writer, sheet_name='Cizelge', index=False)
+                    df_st.to_excel(writer, sheet_name='Istatistik', index=False)
+                
+                st.download_button("📥 Excel Olarak İndir", buf.getvalue(), "nobet_cizelgesi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
             else:
-                st.error("❌ Nobetinator Çözüm Bulamadı!")
-                st.error("Sebep: Personel yetersizliği veya çakışan izinler (X) yüzünden matematiksel imkansızlık.")
+                st.error("Çözüm Bulunamadı! Kısıtları gevşetin.")
     st.markdown('</div>', unsafe_allow_html=True)
