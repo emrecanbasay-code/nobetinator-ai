@@ -16,33 +16,60 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS İLE MODERN GÖRÜNÜM (AI TEMASI) ---
+# --- CSS İLE MODERN GÖRÜNÜM (DARK MODE UYUMLU) ---
 st.markdown("""
 <style>
-    /* Ana Arka Plan */
-    .stApp { background-color: #f0f2f6; }
+    /* 1. ANA ARKA PLAN VE GENEL YAZI RENGİ */
+    .stApp { 
+        background-color: #f0f2f6; 
+    }
     
-    /* Sidebar */
-    [data-testid="stSidebar"] { background-color: #1e272e; }
-    [data-testid="stSidebar"] * { color: #d2dae2 !important; }
+    /* Tüm yazıları zorla koyu renk yap (Dark mode çakışmasını önler) */
+    .stApp, .stMarkdown, h1, h2, h3, h4, p, span, div {
+        color: #1e272e !important;
+    }
+
+    /* 2. SIDEBAR (YAN MENÜ) TASARIMI */
+    [data-testid="stSidebar"] { 
+        background-color: #1e272e !important; 
+    }
+    /* Sidebar içindeki yazılar AÇIK renk olmalı */
+    [data-testid="stSidebar"] * { 
+        color: #d2dae2 !important; 
+    }
     
-    /* Başlıklar */
-    h1, h2, h3 { color: #1e272e; font-family: 'Segoe UI', sans-serif; }
-    
-    /* Kartlar */
+    /* 3. KARTLAR VE KUTULAR */
     .css-card { 
-        background-color: white; 
+        background-color: white !important; 
         padding: 25px; 
         border-radius: 15px; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
         margin-bottom: 20px; 
-        border-left: 6px solid #0fb9b1; /* Turkuaz AI Rengi */
+        border-left: 6px solid #0fb9b1; 
     }
     
-    /* Butonlar */
+    /* 4. METRİK KUTULARI (Tepedeki Sayılar) */
+    div[data-testid="stMetric"] { 
+        background-color: #ffffff !important; 
+        border: 1px solid #dcdde1; 
+        padding: 15px; 
+        border-radius: 12px; 
+        text-align: center; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    /* Metrik etiketleri (Başlıklar) */
+    div[data-testid="stMetricLabel"] > div {
+        color: #636e72 !important;
+    }
+    /* Metrik değerleri (Sayılar) */
+    div[data-testid="stMetricValue"] > div {
+        color: #2d3436 !important;
+    }
+
+    /* 5. BUTONLAR */
     .stButton>button { 
-        background-color: #0fb9b1; 
-        color: white; 
+        background-color: #0fb9b1 !important; 
+        color: white !important; 
         border-radius: 10px; 
         border: none; 
         padding: 0.6rem 1.2rem; 
@@ -50,18 +77,14 @@ st.markdown("""
         transition: all 0.3s ease; 
     }
     .stButton>button:hover { 
-        background-color: #05c46b; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        background-color: #05c46b !important; 
+        color: white !important;
         transform: translateY(-2px);
     }
     
-    /* Metrik Kutuları */
-    div[data-testid="stMetric"] { 
-        background-color: #ffffff; 
-        border: 1px solid #dcdde1; 
-        padding: 15px; 
-        border-radius: 12px; 
-        text-align: center; 
+    /* 6. TABLO VE DATA EDITOR İÇİ */
+    div[data-testid="stDataEditor"] * {
+        color: #1e272e !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -196,6 +219,12 @@ with t1:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.info("Hangi gün kaç personele ihtiyaç var?")
     
+    # Veri Hazırlığı
+    # Her gün için kayıt yoksa varsayılan 1 ata
+    for d in range(1, num_days+1):
+        if d not in st.session_state.daily_needs_24h: st.session_state.daily_needs_24h[d] = 1
+        if d not in st.session_state.daily_needs_16h: st.session_state.daily_needs_16h[d] = 1
+
     d_data = [{"Gün": d, "Tarih": f"{d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][datetime(st.session_state.year, st.session_state.month, d).weekday()]}", "24h": st.session_state.daily_needs_24h.get(d, 1), "16h": st.session_state.daily_needs_16h.get(d, 1)} for d in range(1, num_days+1)]
     
     with st.form("needs"):
@@ -205,11 +234,32 @@ with t1:
                 st.session_state.daily_needs_24h[r["Gün"]] = int(r["24h"])
                 st.session_state.daily_needs_16h[r["Gün"]] = int(r["16h"])
             st.success("Kaydedildi!")
+            st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # TAB 2: KOTALAR
 with t2:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
+    
+    # --- CANLI HESAPLAMA EKLENTİSİ (EKSİK OLAN KISIM) ---
+    st.write("#### 📊 Kota Durumu")
+    
+    # 1. Toplam İhtiyaç (Tab 1'den gelen)
+    total_need_24 = sum(st.session_state.daily_needs_24h.get(d, 1) for d in range(1, num_days+1))
+    total_need_16 = sum(st.session_state.daily_needs_16h.get(d, 1) for d in range(1, num_days+1))
+    
+    # 2. Şu an Dağıtılan (Bu sayfadaki veriler)
+    current_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
+    current_dist_16 = sum(st.session_state.quotas_16h.get(d, 0) for d in st.session_state.doctors)
+    
+    # 3. Gösterge
+    kc1, kc2 = st.columns(2)
+    kc1.metric("Toplam 24h İhtiyacı", f"{total_need_24}", delta=f"{current_dist_24 - total_need_24} Fark", delta_color="inverse")
+    kc2.metric("Toplam 16h İhtiyacı", f"{total_need_16}", delta=f"{current_dist_16 - total_need_16} Fark", delta_color="inverse")
+    st.caption("Not: 'Fark' 0 olduğunda tam dağıtmışsınız demektir. Kırmızı eksi, eksik yazdığınızı gösterir.")
+    st.markdown("---")
+    # ----------------------------------------------------
+
     if "Esnek" in solver_mode:
         st.warning("⚠️ **Esnek Mod:** Bu sayılar **ÜST LİMİTTİR**. AI asla bu sayıdan fazla nöbet yazmaz, gerekirse daha az yazar.")
     else:
@@ -224,6 +274,7 @@ with t2:
                 st.session_state.quotas_24h[r["Dr"]] = int(r["Max 24h"])
                 st.session_state.quotas_16h[r["Dr"]] = int(r["Max 16h"])
             st.success("Kaydedildi!")
+            st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # TAB 3: MANUEL KISITLAR (AKILLI)
@@ -281,8 +332,11 @@ with t4:
 
             # 1. İhtiyaçlar (Sert Kısıt)
             for t in days:
-                model.Add(sum(x24[(d,t)] for d in docs) == st.session_state.daily_needs_24h.get(t, 0))
-                model.Add(sum(x16[(d,t)] for d in docs) == st.session_state.daily_needs_16h.get(t, 0))
+                # İhtiyaç tablosundan veriyi al, yoksa varsayılan 1 kullan
+                need24 = st.session_state.daily_needs_24h.get(t, 1)
+                need16 = st.session_state.daily_needs_16h.get(t, 1)
+                model.Add(sum(x24[(d,t)] for d in docs) == need24)
+                model.Add(sum(x16[(d,t)] for d in docs) == need16)
 
             # 2. Dinlenme (Sert Kısıt)
             for d in docs:
