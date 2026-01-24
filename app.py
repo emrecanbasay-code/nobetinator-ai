@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DARK PRO CSS TASARIMI ---
+# --- DARK PRO CSS TASARIMI (ESKİ SEVDİĞİN TASARIM) ---
 st.markdown("""
 <style>
     .stApp { background-color: #0f172a !important; }
@@ -48,14 +48,10 @@ st.markdown("""
         font-weight: 600; 
         box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
         transition: all 0.2s ease; 
-        width: 100%;
     }
     .stButton>button:hover { 
         background-color: #2563eb !important; 
         transform: translateY(-2px);
-    }
-    div[data-testid="stFileUploader"] {
-        padding-top: 0px;
     }
     div[data-testid="stFileUploader"] button { background-color: #475569 !important; }
     div[data-testid="stDataEditor"] {
@@ -103,42 +99,12 @@ def load_month_data(y, m):
     else:
         st.session_state.daily_needs_24h = {}
         st.session_state.daily_needs_16h = {}
-        # Yüklü veri yoksa varsayılanları tekrar oluştur (Init bloğu aşağıda)
-        init_defaults()
-
-def init_defaults():
-    # Yeni Doktor Listesi (Dosyadan alındı)
-    initial_doctors = [
-        "A01", "A02", "A03", "A4", "A5", "A6", "A7", "A8", "A9", "A10", 
-        "A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19", "A20", 
-        "A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", 
-        "A31", "A32", "A33"
-    ]
-    
-    st.session_state.doctors = initial_doctors
-    
-    q24 = {}
-    q16 = {}
-    
-    for doc in initial_doctors:
-        # Varsayılan Kural: A01-A21 arası 8/0
-        d_24, d_16 = 8, 0
-        
-        # İstisnalar (Dosyaya göre)
-        if doc in ["A22", "A23"] or doc in [f"A{i}" for i in range(25, 34)]: # A25-A33
-            d_24, d_16 = 8, 2
-        elif doc == "A24":
-            d_24, d_16 = 6, 2
-            
-        q24[doc] = d_24
-        q16[doc] = d_16
-        
-    st.session_state.quotas_24h = q24
-    st.session_state.quotas_16h = q16
-    st.session_state.manual_constraints = {}
-
+        st.session_state.quotas_24h = {doc: 0 for doc in st.session_state.doctors}
+        st.session_state.quotas_16h = {doc: 0 for doc in st.session_state.doctors}
+        st.session_state.manual_constraints = {}
 
 # --- BAŞLANGIÇ ---
+if 'doctors' not in st.session_state: st.session_state.doctors = ["Dr. Ahmet", "Dr. Ayşe", "Dr. Mehmet", "Dr. Zeynep", "Dr. Can"]
 if 'year' not in st.session_state: st.session_state.year = datetime.now().year
 if 'month' not in st.session_state: st.session_state.month = datetime.now().month
 if 'db' not in st.session_state: st.session_state.db = {}
@@ -146,11 +112,8 @@ if 'editor_key' not in st.session_state: st.session_state.editor_key = 0
 
 if 'daily_needs_24h' not in st.session_state: st.session_state.daily_needs_24h = {}
 if 'daily_needs_16h' not in st.session_state: st.session_state.daily_needs_16h = {}
-
-# Doktor ve Kota Başlatma (Eğer yoksa)
-if 'doctors' not in st.session_state or 'quotas_24h' not in st.session_state:
-    init_defaults()
-
+if 'quotas_24h' not in st.session_state: st.session_state.quotas_24h = {}
+if 'quotas_16h' not in st.session_state: st.session_state.quotas_16h = {}
 if 'manual_constraints' not in st.session_state: st.session_state.manual_constraints = {}
 
 # --- SIDEBAR ---
@@ -202,9 +165,6 @@ with st.sidebar:
                 st.session_state.doctors = data.get('doctors', st.session_state.doctors)
                 st.rerun()
             except: pass
-        if st.button("🔄 Ayarları Sıfırla (Dosya Verisine Dön)"):
-            init_defaults()
-            st.rerun()
 
 # --- DASHBOARD ---
 st.markdown(f"### 🗓️ {calendar.month_name[st.session_state.month]} {st.session_state.year} Dashboard")
@@ -227,7 +187,7 @@ with t1:
         if d not in st.session_state.daily_needs_24h: st.session_state.daily_needs_24h[d] = 1
         if d not in st.session_state.daily_needs_16h: st.session_state.daily_needs_16h[d] = 1
 
-    # --- EXCEL YÜKLEME ---
+    # --- EXCEL YÜKLEME (FORM İLE) ---
     with st.expander("📤 İhtiyaçları Excel ile Yükle", expanded=True):
         col_dl, col_up = st.columns([1, 2])
         with col_dl:
@@ -250,33 +210,34 @@ with t1:
             )
         
         with col_up:
-            # BURADA FORM YOK - DOĞRUDAN ÇALIŞIR
-            up_daily = st.file_uploader("Excel Dosyası (.xlsx)", type=["xlsx"], label_visibility="collapsed", key="u_daily")
-            
-            if st.button("📂 İhtiyaçları Güncelle", type="primary", key="btn_daily"):
-                if up_daily:
+            with st.form("daily_upload_form", clear_on_submit=False):
+                up_daily = st.file_uploader("Excel Dosyası (.xlsx)", type=["xlsx"], label_visibility="collapsed")
+                submitted_daily = st.form_submit_button("📂 İhtiyaçları Güncelle", type="primary", use_container_width=True)
+                
+                if submitted_daily and up_daily:
                     try:
                         df_d = pd.read_excel(up_daily, engine='openpyxl')
                         df_d.columns = [normalize_col(c) for c in df_d.columns]
                         
-                        if len(df_d.columns) >= 2: 
+                        # Esnek Sütun Kontrolü
+                        if len(df_d.columns) >= 2: # En az Gün ve bir ihtiyaç olmalı
                             for idx, row in df_d.iterrows():
                                 try:
+                                    # İlk sütun gün, ikinci 24h, üçüncü varsa 16h
                                     d_val = int(row.iloc[0])
                                     if 1 <= d_val <= num_days:
                                         if len(row) > 1: st.session_state.daily_needs_24h[d_val] = int(row.iloc[1])
                                         if len(row) > 2: st.session_state.daily_needs_16h[d_val] = int(row.iloc[2])
                                 except: pass
                             
-                            st.success("✅ Günlük ihtiyaçlar güncellendi!")
+                            st.success("✅ Günlük ihtiyaçlar başarıyla yüklendi!")
                             st.session_state.editor_key += 1
+                            # BU SATIR KRİTİK: YÜKLEME SONRASI SAYFAYI YENİLE Kİ TABLO GÜNCELLENSİN
                             st.rerun()
                         else:
                             st.error("Excel formatı anlaşılamadı. Lütfen şablonu kullanın.")
                     except Exception as e:
                         st.error(f"Hata: {e}")
-                else:
-                    st.warning("Lütfen önce bir dosya seçin.")
 
     # Tablo
     d_data = [{"Gün": d, "Tarih": f"{d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][datetime(st.session_state.year, st.session_state.month, d).weekday()]}", "24h": st.session_state.daily_needs_24h.get(d, 1), "16h": st.session_state.daily_needs_16h.get(d, 1)} for d in range(1, num_days+1)]
@@ -325,17 +286,19 @@ with t2:
             )
         
         with col_up:
-            # BURADA FORM YOK
-            uploaded_quotas = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed", key="u_quota")
-            
-            if st.button("📂 Kotaları İşle", type="primary", key="btn_quota"):
-                if uploaded_quotas:
+            with st.form("quota_upload_form", clear_on_submit=False):
+                uploaded_quotas = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed")
+                submit_quota = st.form_submit_button("📂 Kotaları İşle", type="primary", use_container_width=True)
+                
+                if submit_quota and uploaded_quotas:
                     try:
                         df_up = pd.read_excel(uploaded_quotas, engine='openpyxl')
                         df_up.columns = [normalize_col(c) for c in df_up.columns]
                         
+                        # İsim eşleştirme sözlüğü (büyük/küçük harf duyarsız)
                         doc_map = {d.lower().strip(): d for d in st.session_state.doctors}
                         
+                        # Sütun kontrolü
                         col_dr = next((c for c in df_up.columns if "dr" in c.lower()), None)
                         col_24 = next((c for c in df_up.columns if "24" in c), None)
                         col_16 = next((c for c in df_up.columns if "16" in c), None)
@@ -354,12 +317,11 @@ with t2:
                             
                             st.success(f"✅ {count} doktorun kotası güncellendi!")
                             st.session_state.editor_key += 1
+                            # BU SATIR KRİTİK
                             st.rerun()
                         else:
                             st.error(f"Sütunlar bulunamadı. Dosyada 'Dr' ve '24' içeren başlıklar olmalı.")
                     except Exception as e: st.error(f"Hata: {e}")
-                else:
-                    st.warning("Dosya seçilmedi.")
 
     # Tablo
     q_data = [{"Dr": d, "Max 24h": st.session_state.quotas_24h.get(d, 0), "Max 16h": st.session_state.quotas_16h.get(d, 0)} for d in st.session_state.doctors]
@@ -405,11 +367,11 @@ with t3:
             )
 
         with col_ku:
-            # BURADA FORM YOK
-            up_const = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed", key="u_const")
-            
-            if st.button("📂 Kısıtları İşle", type="primary", key="btn_const"):
-                if up_const:
+            with st.form("const_upload_form", clear_on_submit=False):
+                up_const = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed")
+                submit_const = st.form_submit_button("📂 Kısıtları İşle", type="primary", use_container_width=True)
+                
+                if submit_const and up_const:
                     try:
                         df_c = pd.read_excel(up_const, engine='openpyxl')
                         df_c.columns = [normalize_col(c) for c in df_c.columns]
@@ -444,13 +406,12 @@ with t3:
                             
                             st.success(f"✅ {processed_count} doktor kısıtı yüklendi!")
                             st.session_state.editor_key += 1
+                            # BU SATIR KRİTİK
                             st.rerun()
                         else:
                             st.error("Dosyada 'Dr' sütunu bulunamadı.")
                     except Exception as e:
                         st.error(f"Hata oluştu: {e}")
-                else:
-                    st.warning("Dosya seçilmedi.")
 
     # Tablo
     c_data = []
