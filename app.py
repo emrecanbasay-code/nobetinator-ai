@@ -241,7 +241,7 @@ with t1:
 with t2:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     
-    # --- CANLI HESAPLAMA EKLENTİSİ (EKSİK OLAN KISIM) ---
+    # --- CANLI HESAPLAMA ---
     st.write("#### 📊 Kota Durumu")
     
     # 1. Toplam İhtiyaç (Tab 1'den gelen)
@@ -256,14 +256,44 @@ with t2:
     kc1, kc2 = st.columns(2)
     kc1.metric("Toplam 24h İhtiyacı", f"{total_need_24}", delta=f"{current_dist_24 - total_need_24} Fark", delta_color="inverse")
     kc2.metric("Toplam 16h İhtiyacı", f"{total_need_16}", delta=f"{current_dist_16 - total_need_16} Fark", delta_color="inverse")
-    st.caption("Not: 'Fark' 0 olduğunda tam dağıtmışsınız demektir. Kırmızı eksi, eksik yazdığınızı gösterir.")
+    
     st.markdown("---")
-    # ----------------------------------------------------
+    
+    # --- CSV IMPORT ALANI ---
+    with st.expander("📤 CSV ile Kotaları Yükle"):
+        st.caption("Eğer çok doktor varsa tek tek girmek yerine Excel/CSV yükleyebilirsiniz.")
+        
+        # Şablon İndirme
+        sample_df = pd.DataFrame({"Dr": ["Dr. Ahmet", "Dr. Ayşe"], "Max 24h": [5, 4], "Max 16h": [2, 1]})
+        csv_buffer = sample_df.to_csv(index=False).encode('utf-8')
+        st.download_button(label="📥 Örnek CSV Şablonu İndir", data=csv_buffer, file_name="kota_sablonu.csv", mime="text/csv")
+        
+        # Yükleme
+        uploaded_quotas = st.file_uploader("CSV Dosyanı Buraya Bırak", type=["csv"])
+        if uploaded_quotas:
+            try:
+                df_up = pd.read_csv(uploaded_quotas)
+                # Sütun kontrolü
+                req_cols = ["Dr", "Max 24h", "Max 16h"]
+                if all(col in df_up.columns for col in req_cols):
+                    for idx, row in df_up.iterrows():
+                        dname = str(row["Dr"])
+                        # Eğer listede varsa güncelle
+                        if dname in st.session_state.doctors:
+                            st.session_state.quotas_24h[dname] = int(row["Max 24h"])
+                            st.session_state.quotas_16h[dname] = int(row["Max 16h"])
+                    st.success("✅ Kotalar başarıyla yüklendi! Tablo güncelleniyor...")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Hatalı Format! Sütun isimleri şunlar olmalı: {req_cols}")
+            except Exception as e:
+                st.error(f"Dosya okunamadı: {e}")
 
+    # --- TABLO ALANI ---
     if "Esnek" in solver_mode:
-        st.warning("⚠️ **Esnek Mod:** Bu sayılar **ÜST LİMİTTİR**. AI asla bu sayıdan fazla nöbet yazmaz, gerekirse daha az yazar.")
+        st.warning("⚠️ **Esnek Mod:** Bu sayılar **ÜST LİMİTTİR**. AI asla bu sayıdan fazla nöbet yazmaz.")
     else:
-        st.info("ℹ️ **Katı Mod:** AI tam olarak bu sayı kadar nöbet yazmaya çalışır. Sığmazsa hata verir.")
+        st.info("ℹ️ **Katı Mod:** AI tam olarak bu sayı kadar nöbet yazmaya çalışır.")
         
     q_data = [{"Dr": d, "Max 24h": st.session_state.quotas_24h.get(d, 0), "Max 16h": st.session_state.quotas_16h.get(d, 0)} for d in st.session_state.doctors]
     
