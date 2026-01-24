@@ -184,17 +184,16 @@ with t1:
         if d not in st.session_state.daily_needs_24h: st.session_state.daily_needs_24h[d] = 1
         if d not in st.session_state.daily_needs_16h: st.session_state.daily_needs_16h[d] = 1
 
-    # --- YENİ: İHTİYAÇ EXCEL YÜKLEME ---
+    # --- EXCEL YÜKLEME (FORM İLE) ---
     with st.expander("📤 İhtiyaçları Excel ile Yükle", expanded=True):
         col_dl, col_up = st.columns([1, 2])
         with col_dl:
-            # Excel Şablonu Oluşturma
+            # Excel Şablonu
             daily_template = []
             for d in range(1, num_days + 1):
                 daily_template.append({"Gün": d, "24h İhtiyaç": 1, "16h İhtiyaç": 1})
             df_daily_temp = pd.DataFrame(daily_template)
             
-            # Excel Buffer
             buf_daily = io.BytesIO()
             with pd.ExcelWriter(buf_daily, engine='xlsxwriter') as writer:
                 df_daily_temp.to_excel(writer, index=False, sheet_name='Ihtiyaclar')
@@ -208,34 +207,37 @@ with t1:
             )
         
         with col_up:
-            up_daily = st.file_uploader("Excel Dosyası (.xlsx)", type=["xlsx"], label_visibility="collapsed", key="udaily")
-            if up_daily and st.button("📂 İhtiyaçları Güncelle", type="primary", use_container_width=True):
-                try:
-                    df_d = pd.read_excel(up_daily)
-                    # Sütun isimleri (Kullanıcı ingilizce karakter vs kullanırsa diye esnek yapalım)
-                    # Beklenen: Gün, 24h İhtiyaç, 16h İhtiyaç
-                    if len(df_d.columns) >= 3:
-                        for idx, row in df_d.iterrows():
-                            # İlk sütun gün, 2. sütun 24h, 3. sütun 16h varsayımı
-                            d_val = int(row.iloc[0])
-                            need_24 = int(row.iloc[1])
-                            need_16 = int(row.iloc[2])
-                            
-                            if 1 <= d_val <= num_days:
-                                st.session_state.daily_needs_24h[d_val] = need_24
-                                st.session_state.daily_needs_16h[d_val] = need_16
-                        st.success("✅ Günlük ihtiyaçlar güncellendi!")
-                        st.session_state.editor_key += 1
-                        st.rerun()
-                    else:
-                        st.error("Excel formatı hatalı. En az 3 sütun olmalı: Gün, 24h, 16h")
-                except Exception as e:
-                    st.error(f"Dosya okunamadı: {e}")
+            with st.form("daily_upload_form", clear_on_submit=False):
+                up_daily = st.file_uploader("Excel Dosyası (.xlsx)", type=["xlsx"], label_visibility="collapsed")
+                submitted_daily = st.form_submit_button("📂 İhtiyaçları Güncelle", type="primary", use_container_width=True)
+                
+                if submitted_daily and up_daily:
+                    try:
+                        df_d = pd.read_excel(up_daily, engine='openpyxl')
+                        # Sütun temizliği
+                        df_d.columns = [str(c).strip() for c in df_d.columns]
+                        
+                        if len(df_d.columns) >= 3:
+                            for idx, row in df_d.iterrows():
+                                try:
+                                    d_val = int(row.iloc[0])
+                                    need_24 = int(row.iloc[1])
+                                    need_16 = int(row.iloc[2])
+                                    if 1 <= d_val <= num_days:
+                                        st.session_state.daily_needs_24h[d_val] = need_24
+                                        st.session_state.daily_needs_16h[d_val] = need_16
+                                except: pass
+                            st.success("✅ Günlük ihtiyaçlar başarıyla yüklendi!")
+                            st.session_state.editor_key += 1
+                        else:
+                            st.error("Excel formatı geçersiz. Şablonu kullanın.")
+                    except Exception as e:
+                        st.error(f"Hata: {e}")
 
     # Tablo
     d_data = [{"Gün": d, "Tarih": f"{d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][datetime(st.session_state.year, st.session_state.month, d).weekday()]}", "24h": st.session_state.daily_needs_24h.get(d, 1), "16h": st.session_state.daily_needs_16h.get(d, 1)} for d in range(1, num_days+1)]
     
-    with st.form("needs"):
+    with st.form("needs_manual"):
         edf = st.data_editor(pd.DataFrame(d_data), key=f"need_ed_{st.session_state.editor_key}", use_container_width=True, hide_index=True, column_config={"Gün": st.column_config.NumberColumn(disabled=True), "Tarih": st.column_config.TextColumn(disabled=True)})
         if st.form_submit_button("💾 Tablodan Kaydet"):
             for i, r in edf.iterrows():
@@ -266,7 +268,6 @@ with t2:
             sample_data = [{"Dr": d, "Max 24h": 0, "Max 16h": 0} for d in st.session_state.doctors]
             sample_df = pd.DataFrame(sample_data)
             
-            # Excel Buffer
             buf_quota = io.BytesIO()
             with pd.ExcelWriter(buf_quota, engine='xlsxwriter') as writer:
                 sample_df.to_excel(writer, index=False, sheet_name='Kotalar')
@@ -280,28 +281,35 @@ with t2:
             )
         
         with col_up:
-            uploaded_quotas = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed", key="u1")
-            if uploaded_quotas and st.button("📂 Kotaları İşle", type="primary", use_container_width=True):
-                try:
-                    df_up = pd.read_excel(uploaded_quotas)
-                    if all(col in df_up.columns for col in ["Dr", "Max 24h", "Max 16h"]):
-                        count = 0
-                        for idx, row in df_up.iterrows():
-                            dname = str(row["Dr"]).strip()
-                            if dname in st.session_state.doctors:
-                                st.session_state.quotas_24h[dname] = int(row["Max 24h"])
-                                st.session_state.quotas_16h[dname] = int(row["Max 16h"])
-                                count += 1
-                        st.success(f"✅ {count} doktor güncellendi!")
-                        st.session_state.editor_key += 1
-                        st.rerun()
-                    else:
-                        st.error("Sütunlar hatalı: Dr, Max 24h, Max 16h olmalı")
-                except Exception as e: st.error(f"Hata: {e}")
+            with st.form("quota_upload_form", clear_on_submit=False):
+                uploaded_quotas = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed")
+                submit_quota = st.form_submit_button("📂 Kotaları İşle", type="primary", use_container_width=True)
+                
+                if submit_quota and uploaded_quotas:
+                    try:
+                        df_up = pd.read_excel(uploaded_quotas, engine='openpyxl')
+                        # Sütun isimlerini normalize et (boşluk sil, küçük harf yap vs)
+                        df_up.columns = [str(c).strip() for c in df_up.columns]
+                        
+                        # Kontrol edilecek sütunlar (esnek kontrol)
+                        required = ["Dr", "Max 24h", "Max 16h"]
+                        if all(c in df_up.columns for c in required):
+                            count = 0
+                            for idx, row in df_up.iterrows():
+                                dname = str(row["Dr"]).strip()
+                                if dname in st.session_state.doctors:
+                                    st.session_state.quotas_24h[dname] = int(row["Max 24h"])
+                                    st.session_state.quotas_16h[dname] = int(row["Max 16h"])
+                                    count += 1
+                            st.success(f"✅ {count} doktorun kotası güncellendi!")
+                            st.session_state.editor_key += 1
+                        else:
+                            st.error(f"Sütunlar bulunamadı. Gerekli: {required}. Dosyadaki: {list(df_up.columns)}")
+                    except Exception as e: st.error(f"Hata: {e}")
 
     # Tablo
     q_data = [{"Dr": d, "Max 24h": st.session_state.quotas_24h.get(d, 0), "Max 16h": st.session_state.quotas_16h.get(d, 0)} for d in st.session_state.doctors]
-    with st.form("quotas"):
+    with st.form("quotas_manual"):
         qdf = st.data_editor(pd.DataFrame(q_data), key=f"quota_ed_{st.session_state.editor_key}", use_container_width=True, hide_index=True, column_config={"Dr": st.column_config.TextColumn(disabled=True)})
         if st.form_submit_button("💾 Tablodan Kaydet"):
             for i, r in qdf.iterrows():
@@ -330,7 +338,6 @@ with t3:
             
             df_temp = pd.DataFrame(template_data)
             
-            # Excel Buffer
             buf_const = io.BytesIO()
             with pd.ExcelWriter(buf_const, engine='xlsxwriter') as writer:
                 df_temp.to_excel(writer, index=False, sheet_name='Kisitlar')
@@ -344,46 +351,48 @@ with t3:
             )
 
         with col_ku:
-            up_const = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed", key="u2")
-            
-            if up_const and st.button("📂 Kısıtları İşle", type="primary", use_container_width=True):
-                try:
-                    df_c = pd.read_excel(up_const)
-                    processed_count = 0
-                    if "Dr" in df_c.columns:
-                        # Tablo kolon isimlerini string yap (Excel sayı olarak okuyabilir)
-                        df_c.columns = df_c.columns.astype(str)
+            with st.form("const_upload_form", clear_on_submit=False):
+                up_const = st.file_uploader("Excel Dosyası", type=["xlsx"], label_visibility="collapsed")
+                submit_const = st.form_submit_button("📂 Kısıtları İşle", type="primary", use_container_width=True)
+                
+                if submit_const and up_const:
+                    try:
+                        df_c = pd.read_excel(up_const, engine='openpyxl')
+                        # Kolonları string yap ve temizle
+                        df_c.columns = [str(c).strip() for c in df_c.columns]
                         
-                        for idx, row in df_c.iterrows():
-                            doc_name = str(row["Dr"]).strip()
-                            if doc_name in st.session_state.doctors:
-                                for day in range(1, num_days + 1):
-                                    d_col = str(day)
-                                    if d_col in df_c.columns:
-                                        raw_val = row[d_col]
-                                        # NaN kontrolü
-                                        if pd.isna(raw_val): val = ""
-                                        else: val = str(raw_val).strip().upper()
-                                        
-                                        if val in ["24", "16", "X"]:
-                                            st.session_state.manual_constraints[f"{doc_name}_{day}"] = val
-                                            if val == "24":
-                                                for off in range(1, rest_days_24h+1):
-                                                    if day+off <= num_days: 
-                                                        st.session_state.manual_constraints[f"{doc_name}_{day+off}"] = "X"
-                                        elif val == "":
-                                            if f"{doc_name}_{day}" in st.session_state.manual_constraints:
-                                                del st.session_state.manual_constraints[f"{doc_name}_{day}"]
-                                processed_count += 1
-                        
-                        if processed_count > 0:
-                            st.success(f"✅ {processed_count} doktor güncellendi!")
-                            st.session_state.editor_key += 1
-                            st.rerun()
-                    else:
-                        st.error("Dosyada 'Dr' sütunu bulunamadı.")
-                except Exception as e:
-                    st.error(f"Hata oluştu: {e}")
+                        processed_count = 0
+                        if "Dr" in df_c.columns:
+                            for idx, row in df_c.iterrows():
+                                doc_name = str(row["Dr"]).strip()
+                                if doc_name in st.session_state.doctors:
+                                    for day in range(1, num_days + 1):
+                                        d_col = str(day)
+                                        if d_col in df_c.columns:
+                                            raw_val = row[d_col]
+                                            if pd.isna(raw_val): val = ""
+                                            else: val = str(raw_val).strip().upper()
+                                            
+                                            if val in ["24", "16", "X"]:
+                                                st.session_state.manual_constraints[f"{doc_name}_{day}"] = val
+                                                if val == "24":
+                                                    for off in range(1, rest_days_24h+1):
+                                                        if day+off <= num_days: 
+                                                            st.session_state.manual_constraints[f"{doc_name}_{day+off}"] = "X"
+                                            elif val == "":
+                                                if f"{doc_name}_{day}" in st.session_state.manual_constraints:
+                                                    del st.session_state.manual_constraints[f"{doc_name}_{day}"]
+                                    processed_count += 1
+                            
+                            if processed_count > 0:
+                                st.success(f"✅ {processed_count} doktor kısıtı yüklendi!")
+                                st.session_state.editor_key += 1
+                            else:
+                                st.warning("Doktor isimleri eşleşmedi.")
+                        else:
+                            st.error("Dosyada 'Dr' sütunu bulunamadı.")
+                    except Exception as e:
+                        st.error(f"Hata oluştu: {e}")
 
     # Tablo
     c_data = []
@@ -397,24 +406,26 @@ with t3:
         dn = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][datetime(st.session_state.year, st.session_state.month, d).weekday()]
         col_cfg[str(d)] = st.column_config.SelectboxColumn(label=f"{d} {dn}", options=["", "24", "16", "X"], width="small")
         
-    ed_cons = st.data_editor(pd.DataFrame(c_data), column_config=col_cfg, hide_index=True, use_container_width=True, key=f"cons_ed_{st.session_state.editor_key}")
-    
-    updated = False
-    for i, r in ed_cons.iterrows():
-        doc = r["Doktor"]
-        for d in range(1, num_days+1):
-            val = str(r[str(d)])
-            k = f"{doc}_{d}"
-            if val != st.session_state.manual_constraints.get(k, ""):
-                if val in ["24", "16", "X"]:
-                    st.session_state.manual_constraints[k] = val
-                    if val == "24":
-                        for off in range(1, rest_days_24h+1):
-                            if d+off <= num_days: st.session_state.manual_constraints[f"{doc}_{d+off}"] = "X"
-                else:
-                    if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
-                updated = True
-    if updated: st.rerun()
+    with st.form("const_manual"):
+        ed_cons = st.data_editor(pd.DataFrame(c_data), column_config=col_cfg, hide_index=True, use_container_width=True, key=f"cons_ed_{st.session_state.editor_key}")
+        if st.form_submit_button("💾 Tablodan Kaydet"):
+            updated = False
+            for i, r in ed_cons.iterrows():
+                doc = r["Doktor"]
+                for d in range(1, num_days+1):
+                    val = str(r[str(d)])
+                    k = f"{doc}_{d}"
+                    if val != st.session_state.manual_constraints.get(k, ""):
+                        if val in ["24", "16", "X"]:
+                            st.session_state.manual_constraints[k] = val
+                            if val == "24":
+                                for off in range(1, rest_days_24h+1):
+                                    if d+off <= num_days: st.session_state.manual_constraints[f"{doc}_{d+off}"] = "X"
+                        else:
+                            if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
+                        updated = True
+            if updated: st.rerun()
+            else: st.success("Değişiklik yok.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # TAB 4: HESAPLAMA
