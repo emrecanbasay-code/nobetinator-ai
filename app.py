@@ -12,7 +12,7 @@ import time
 # 1. AYARLAR VE SAYFA YAPILANDIRMASI
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Nobetinator Pro v2.0",
+    page_title="Nobetinator Pro v2.1",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -165,7 +165,7 @@ if 'manual_constraints' not in st.session_state: st.session_state.manual_constra
 # 4. YAN MENÜ (SIDEBAR) - KONTROL PANELİ
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("## 🏥 Nobetinator Pro v2.0")
+    st.markdown("## 🏥 Nobetinator Pro v2.1")
     st.markdown("---")
     
     # Tarih Seçimi
@@ -287,12 +287,11 @@ with tab_needs:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 2: KOTA & KIDEM ---
+# --- TAB 2: KOTA & KIDEM (DÜZELTİLDİ: NUMBER COLUMN) ---
 with tab_quotas:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 🎯 Hedef Kotalar ve Kıdem Ayarları")
     
-    # CANLI SAYAÇLAR (User Request)
     tot_req_24 = sum(st.session_state.daily_needs_24h.values())
     tot_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
     
@@ -305,7 +304,7 @@ with tab_quotas:
     with col_k2:
         st.metric("🟢 16h Dengesi (İhtiyaç / Kapasite)", f"{tot_req_16} / {tot_dist_16}", delta=(tot_dist_16 - tot_req_16))
     
-    st.info("💡 **İpucu:** Kapasite (Dağıtılan), İhtiyaçtan azsa nöbet yazılamaz. Fazlaysa AI bazı kişilere daha az nöbet yazar.")
+    st.info("💡 **İpucu:** Kotaları değiştirmek için sayıların üzerine çift tıklayıp yazabilirsiniz.")
     
     # Tablo Verisi
     data_quota = []
@@ -327,17 +326,18 @@ with tab_quotas:
             column_config={
                 "Doktor": st.column_config.TextColumn(disabled=True),
                 "Kıdem": st.column_config.SelectboxColumn(options=["Kıdemli", "Orta", "Çömez"], required=True),
-                "🔴 Hedef 24h": st.column_config.ProgressColumn(format="%d", min_value=0, max_value=15, width="medium"),
-                "🟢 Hedef 16h": st.column_config.ProgressColumn(format="%d", min_value=0, max_value=15, width="medium")
+                # BURASI DÜZELTİLDİ: ProgressColumn yerine NumberColumn
+                "🔴 Hedef 24h": st.column_config.NumberColumn("🔴 Hedef 24h", min_value=0, max_value=31, step=1, format="%d", required=True),
+                "🟢 Hedef 16h": st.column_config.NumberColumn("🟢 Hedef 16h", min_value=0, max_value=31, step=1, format="%d", required=True)
             }
         )
         if st.form_submit_button("💾 Kotaları ve Kıdemi Kaydet", type="primary"):
             for _, r in edited_quotas.iterrows():
                 d = r["Doktor"]
-                st.session_state.quotas_24h[d] = r["🔴 Hedef 24h"]
-                st.session_state.quotas_16h[d] = r["🟢 Hedef 16h"]
+                st.session_state.quotas_24h[d] = int(r["🔴 Hedef 24h"])
+                st.session_state.quotas_16h[d] = int(r["🟢 Hedef 16h"])
                 st.session_state.seniority[d] = r["Kıdem"]
-            st.success("Kotalar ve kıdemler kaydedildi.")
+            st.success("Kotalar ve kıdemler başarıyla kaydedildi!")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
