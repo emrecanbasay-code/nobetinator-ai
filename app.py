@@ -12,7 +12,7 @@ import time
 # 1. AYARLAR VE SAYFA YAPILANDIRMASI
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Nobetinator Pro v2.1",
+    page_title="Nobetinator Pro v2.2",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -165,7 +165,7 @@ if 'manual_constraints' not in st.session_state: st.session_state.manual_constra
 # 4. YAN MENÜ (SIDEBAR) - KONTROL PANELİ
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("## 🏥 Nobetinator Pro v2.1")
+    st.markdown("## 🏥 Nobetinator Pro v2.2")
     st.markdown("---")
     
     # Tarih Seçimi
@@ -265,6 +265,7 @@ with tab_needs:
     df_needs = pd.DataFrame(data_needs)
     
     with st.form("form_needs"):
+        # YÜKSEKLİK GÜNCELLENDİ (400 -> 800)
         edited_needs = st.data_editor(
             df_needs, 
             use_container_width=True, 
@@ -275,7 +276,7 @@ with tab_needs:
                 "🔴 24 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=10, step=1),
                 "🟢 16 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=10, step=1)
             },
-            height=400,
+            height=800, 
             key=f"ed_needs_{st.session_state.editor_key}"
         )
         if st.form_submit_button("💾 İhtiyaçları Kaydet", type="primary"):
@@ -287,7 +288,7 @@ with tab_needs:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 2: KOTA & KIDEM (DÜZELTİLDİ: NUMBER COLUMN) ---
+# --- TAB 2: KOTA & KIDEM ---
 with tab_quotas:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 🎯 Hedef Kotalar ve Kıdem Ayarları")
@@ -317,16 +318,16 @@ with tab_quotas:
         })
     
     with st.form("form_quotas"):
+        # YÜKSEKLİK GÜNCELLENDİ (500 -> 1000)
         edited_quotas = st.data_editor(
             pd.DataFrame(data_quota),
             use_container_width=True,
             hide_index=True,
             key=f"ed_quota_{st.session_state.editor_key}",
-            height=500,
+            height=1000,
             column_config={
                 "Doktor": st.column_config.TextColumn(disabled=True),
                 "Kıdem": st.column_config.SelectboxColumn(options=["Kıdemli", "Orta", "Çömez"], required=True),
-                # BURASI DÜZELTİLDİ: ProgressColumn yerine NumberColumn
                 "🔴 Hedef 24h": st.column_config.NumberColumn("🔴 Hedef 24h", min_value=0, max_value=31, step=1, format="%d", required=True),
                 "🟢 Hedef 16h": st.column_config.NumberColumn("🟢 Hedef 16h", min_value=0, max_value=31, step=1, format="%d", required=True)
             }
