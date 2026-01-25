@@ -22,7 +22,6 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6, p, span, div, label { color: #e2e8f0 !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 1px solid #334155; }
     
-    /* Kart Yapısı */
     .css-card { 
         background-color: #1e293b !important; 
         padding: 25px; 
@@ -57,7 +56,6 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* Tablo Alanlarını Genişletme */
     div[data-testid="stDataEditor"] {
         background-color: #1e293b; 
         border-radius: 10px;
@@ -88,6 +86,7 @@ def save_current_month_data():
         "daily_needs_16h": st.session_state.daily_needs_16h.copy(),
         "quotas_24h": st.session_state.quotas_24h.copy(),
         "quotas_16h": st.session_state.quotas_16h.copy(),
+        "seniority": st.session_state.seniority.copy(), # Kıdem verisi eklendi
         "manual_constraints": st.session_state.manual_constraints.copy()
     }
 
@@ -99,59 +98,38 @@ def load_month_data(y, m):
         st.session_state.daily_needs_16h = data["daily_needs_16h"]
         st.session_state.quotas_24h = data["quotas_24h"]
         st.session_state.quotas_16h = data["quotas_16h"]
+        st.session_state.seniority = data.get("seniority", {k["isim"]: "Orta" for k in VARSAYILAN_EKIP})
         st.session_state.manual_constraints = data["manual_constraints"]
     else:
         st.session_state.daily_needs_24h = {}
         st.session_state.daily_needs_16h = {}
         st.session_state.quotas_24h = {k["isim"]: k["kota24"] for k in VARSAYILAN_EKIP}
         st.session_state.quotas_16h = {k["isim"]: k["kota16"] for k in VARSAYILAN_EKIP}
+        st.session_state.seniority = {k["isim"]: "Orta" for k in VARSAYILAN_EKIP}
         st.session_state.manual_constraints = {}
 
 # --- BAŞLANGIÇ VE KADRO AYARLARI ---
 VARSAYILAN_EKIP = [
-    # 1. GRUP (Sadece 24h: 8, 16h: 0)
-    {"isim": "A01", "kota24": 8, "kota16": 0},
-    {"isim": "A02", "kota24": 8, "kota16": 0},
-    {"isim": "A03", "kota24": 8, "kota16": 0},
-    {"isim": "A4",  "kota24": 8, "kota16": 0},
-    {"isim": "A5",  "kota24": 8, "kota16": 0},
-    {"isim": "A6",  "kota24": 8, "kota16": 0},
-    {"isim": "A7",  "kota24": 8, "kota16": 0},
-    {"isim": "A8",  "kota24": 8, "kota16": 0},
-    {"isim": "A9",  "kota24": 8, "kota16": 0},
-    {"isim": "A10", "kota24": 8, "kota16": 0},
-    {"isim": "A11", "kota24": 8, "kota16": 0},
-    {"isim": "A12", "kota24": 8, "kota16": 0},
-    {"isim": "A13", "kota24": 8, "kota16": 0},
-    {"isim": "A14", "kota24": 8, "kota16": 0},
-    {"isim": "A15", "kota24": 8, "kota16": 0},
-    {"isim": "A16", "kota24": 8, "kota16": 0},
-
-    # 2. GRUP (24h: 8, 16h: 1)
-    {"isim": "A17", "kota24": 8, "kota16": 1},
-    {"isim": "A18", "kota24": 8, "kota16": 1},
-    {"isim": "A19", "kota24": 8, "kota16": 1},
-    {"isim": "A20", "kota24": 8, "kota16": 1},
-    {"isim": "A21", "kota24": 8, "kota16": 1},
-    
-    # 3. GRUP (24h: 8, 16h: 2)
-    {"isim": "A22", "kota24": 8, "kota16": 2},
-    {"isim": "A23", "kota24": 8, "kota16": 2},
-    {"isim": "A24", "kota24": 8, "kota16": 2},
-    {"isim": "A25", "kota24": 8, "kota16": 2},
-    {"isim": "A26", "kota24": 8, "kota16": 2},
-    {"isim": "A27", "kota24": 8, "kota16": 2},
-    {"isim": "A28", "kota24": 8, "kota16": 2},
-    {"isim": "A29", "kota24": 8, "kota16": 2},
-    {"isim": "A30", "kota24": 8, "kota16": 2},
-    {"isim": "A31", "kota24": 8, "kota16": 2},
-    {"isim": "A32", "kota24": 8, "kota16": 2},
+    {"isim": "A01", "kota24": 8, "kota16": 0}, {"isim": "A02", "kota24": 8, "kota16": 0},
+    {"isim": "A03", "kota24": 8, "kota16": 0}, {"isim": "A4",  "kota24": 8, "kota16": 0},
+    {"isim": "A5",  "kota24": 8, "kota16": 0}, {"isim": "A6",  "kota24": 8, "kota16": 0},
+    {"isim": "A7",  "kota24": 8, "kota16": 0}, {"isim": "A8",  "kota24": 8, "kota16": 0},
+    {"isim": "A9",  "kota24": 8, "kota16": 0}, {"isim": "A10", "kota24": 8, "kota16": 0},
+    {"isim": "A11", "kota24": 8, "kota16": 0}, {"isim": "A12", "kota24": 8, "kota16": 0},
+    {"isim": "A13", "kota24": 8, "kota16": 0}, {"isim": "A14", "kota24": 8, "kota16": 0},
+    {"isim": "A15", "kota24": 8, "kota16": 0}, {"isim": "A16", "kota24": 8, "kota16": 0},
+    {"isim": "A17", "kota24": 8, "kota16": 1}, {"isim": "A18", "kota24": 8, "kota16": 1},
+    {"isim": "A19", "kota24": 8, "kota16": 1}, {"isim": "A20", "kota24": 8, "kota16": 1},
+    {"isim": "A21", "kota24": 8, "kota16": 1}, {"isim": "A22", "kota24": 8, "kota16": 2},
+    {"isim": "A23", "kota24": 8, "kota16": 2}, {"isim": "A24", "kota24": 8, "kota16": 2},
+    {"isim": "A25", "kota24": 8, "kota16": 2}, {"isim": "A26", "kota24": 8, "kota16": 2},
+    {"isim": "A27", "kota24": 8, "kota16": 2}, {"isim": "A28", "kota24": 8, "kota16": 2},
+    {"isim": "A29", "kota24": 8, "kota16": 2}, {"isim": "A30", "kota24": 8, "kota16": 2},
+    {"isim": "A31", "kota24": 8, "kota16": 2}, {"isim": "A32", "kota24": 8, "kota16": 2},
     {"isim": "A33", "kota24": 8, "kota16": 2}
 ]
 
-if 'doctors' not in st.session_state: 
-    st.session_state.doctors = [kisi["isim"] for kisi in VARSAYILAN_EKIP]
-
+if 'doctors' not in st.session_state: st.session_state.doctors = [kisi["isim"] for kisi in VARSAYILAN_EKIP]
 if 'year' not in st.session_state: st.session_state.year = datetime.now().year
 if 'month' not in st.session_state: st.session_state.month = datetime.now().month
 if 'db' not in st.session_state: st.session_state.db = {}
@@ -159,16 +137,13 @@ if 'editor_key' not in st.session_state: st.session_state.editor_key = 0
 if 'daily_needs_24h' not in st.session_state: st.session_state.daily_needs_24h = {}
 if 'daily_needs_16h' not in st.session_state: st.session_state.daily_needs_16h = {}
 
-if 'quotas_24h' not in st.session_state: 
-    st.session_state.quotas_24h = {kisi["isim"]: kisi["kota24"] for kisi in VARSAYILAN_EKIP}
-if 'quotas_16h' not in st.session_state: 
-    st.session_state.quotas_16h = {kisi["isim"]: kisi["kota16"] for kisi in VARSAYILAN_EKIP}
+if 'quotas_24h' not in st.session_state: st.session_state.quotas_24h = {kisi["isim"]: kisi["kota24"] for kisi in VARSAYILAN_EKIP}
+if 'quotas_16h' not in st.session_state: st.session_state.quotas_16h = {kisi["isim"]: kisi["kota16"] for kisi in VARSAYILAN_EKIP}
+if 'seniority' not in st.session_state: st.session_state.seniority = {kisi["isim"]: "Orta" for kisi in VARSAYILAN_EKIP}
 if 'manual_constraints' not in st.session_state: st.session_state.manual_constraints = {}
 
 # --- SIDEBAR ---
 with st.sidebar:
-    # --- QR KOD ALANI ---
-    # Bu URL otomatik QR oluşturur, ekstra kütüphane gerektirmez.
     qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://nobetinator-ai-2ky3vucfai5wkcdnmkvqsm.streamlit.app"
     st.image(qr_url, width=130, caption="📱 Mobilden Giriş")
     
@@ -190,12 +165,11 @@ with st.sidebar:
     num_days = calendar.monthrange(selected_year, selected_month)[1]
     st.markdown("---")
     st.subheader("⚙️ Kurallar")
-    st.info("💡 16h nöbetini 24h'den sonraki 2. güne koymak için burayı '1' veya '2' olarak ayarlayın.")
     rest_days_24h = st.slider("24h Sonrası Yasaklı Gün", 1, 5, 2)
     
     st.markdown("---")
     st.subheader("🎛️ AI Stratejisi")
-    solver_mode = st.radio("Mod:", ["Katı Kurallar (Tam Uyum)", "Esnek Mod (Tavan Sınır)"], index=1)
+    solver_mode = st.radio("Mod:", ["Katı Kurallar (Tam Uyum)", "Esnek Mod (Kıdem Dengesi Öncelikli)"], index=1)
     st.markdown("---")
     
     with st.expander("👨‍⚕️ Kadro Yönetimi"):
@@ -203,6 +177,7 @@ with st.sidebar:
         if st.button("Listeye Ekle") and new_doc:
             if new_doc not in st.session_state.doctors:
                 st.session_state.doctors.append(new_doc)
+                st.session_state.seniority[new_doc] = "Orta" # Varsayılan kıdem
                 st.rerun()
         rem_doc = st.selectbox("Silinecek İsim", [""] + st.session_state.doctors)
         if st.button("Listeden Sil") and rem_doc:
@@ -210,13 +185,13 @@ with st.sidebar:
             st.rerun()
 
     with st.expander("💾 YEDEKLEME (JSON)"):
-        st.info("İsimleri, Kotaları ve Kısıtları kaydeder.")
         if st.button("Yedek İndir (JSON)"):
             save_current_month_data()
             d_out = {
                 "doctors": st.session_state.doctors,
                 "quotas_24h": st.session_state.quotas_24h,
                 "quotas_16h": st.session_state.quotas_16h,
+                "seniority": st.session_state.seniority,
                 "manual_constraints": st.session_state.manual_constraints,
                 "db": {str(k): v for k, v in st.session_state.db.items()},
                 "current_year": st.session_state.year,
@@ -231,6 +206,7 @@ with st.sidebar:
                 st.session_state.doctors = data.get('doctors', st.session_state.doctors)
                 if 'quotas_24h' in data: st.session_state.quotas_24h = data['quotas_24h']
                 if 'quotas_16h' in data: st.session_state.quotas_16h = data['quotas_16h']
+                if 'seniority' in data: st.session_state.seniority = data['seniority']
                 if 'manual_constraints' in data: st.session_state.manual_constraints = data['manual_constraints']
                 if 'db' in data: st.session_state.db = data['db']
                 st.success("✅ Veriler yüklendi!")
@@ -243,12 +219,12 @@ st.markdown(f"### 🗓️ {calendar.month_name[st.session_state.month]} {st.sess
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Toplam Gün", num_days)
 c2.metric("Personel Sayısı", len(st.session_state.doctors))
-c3.metric("Mod", "Esnek" if "Esnek" in solver_mode else "Katı")
+c3.metric("Mod", "Esnek & Dengeli" if "Esnek" in solver_mode else "Katı")
 c4.metric("Kısıtlar", len(st.session_state.manual_constraints))
 
 st.write("") 
 
-t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR (LİMİT)", "🔒 KISITLAR (HIZLI GİRİŞ)", "🚀 SONUÇ & RAPOR"])
+t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR VE KIDEM", "🔒 KISITLAR (HIZLI GİRİŞ)", "🚀 SONUÇ & RAPOR"])
 
 # TAB 1: GÜNLÜK İHTİYAÇ
 with t1:
@@ -269,35 +245,52 @@ with t1:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 2: KOTALAR
+# TAB 2: KOTALAR VE KIDEM
 with t2:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.markdown("#### 🎯 Doktor Nöbet Hedefleri")
-    total_need_24 = sum(st.session_state.daily_needs_24h.get(d, 1) for d in range(1, num_days+1))
-    total_need_16 = sum(st.session_state.daily_needs_16h.get(d, 1) for d in range(1, num_days+1))
-    current_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
-    current_dist_16 = sum(st.session_state.quotas_16h.get(d, 0) for d in st.session_state.doctors)
+    st.markdown("#### 🎯 Doktor Kotaları ve Kıdem Durumu")
+    st.info("Kıdem sütununu kullanarak doktorları 'Kıdemli', 'Orta', 'Çömez' olarak etiketleyin. AI nöbetleri eşit dağıtmaya çalışacaktır.")
     
-    col_q1, col_q2 = st.columns(2)
-    col_q1.metric("24h İhtiyaç / Dağıtılan", f"{total_need_24} / {current_dist_24}", delta=f"{current_dist_24 - total_need_24}", delta_color="off")
-    col_q2.metric("16h İhtiyaç / Dağıtılan", f"{total_need_16} / {current_dist_16}", delta=f"{current_dist_16 - total_need_16}", delta_color="off")
-    
-    q_data = [{"Dr": d, "Max 24h": st.session_state.quotas_24h.get(d, 0), "Max 16h": st.session_state.quotas_16h.get(d, 0)} for d in st.session_state.doctors]
+    # Veri hazırlama
+    q_data = []
+    for d in st.session_state.doctors:
+        q_data.append({
+            "Dr": d,
+            "Max 24h": st.session_state.quotas_24h.get(d, 0),
+            "Max 16h": st.session_state.quotas_16h.get(d, 0),
+            "Kıdem": st.session_state.seniority.get(d, "Orta")
+        })
+
     with st.form("quotas_manual"):
-        qdf = st.data_editor(pd.DataFrame(q_data), height=500, key=f"quota_ed_{st.session_state.editor_key}", use_container_width=True, hide_index=True, column_config={"Dr": st.column_config.TextColumn(disabled=True)})
+        # Selectbox Column for Seniority
+        qdf = st.data_editor(
+            pd.DataFrame(q_data), 
+            height=600, 
+            key=f"quota_ed_{st.session_state.editor_key}", 
+            use_container_width=True, 
+            hide_index=True, 
+            column_config={
+                "Dr": st.column_config.TextColumn(disabled=True),
+                "Kıdem": st.column_config.SelectboxColumn(
+                    "Kıdem Seviyesi",
+                    options=["Kıdemli", "Orta", "Çömez"],
+                    required=True,
+                    width="medium"
+                )
+            }
+        )
         if st.form_submit_button("💾 Tablodan Kaydet"):
             for i, r in qdf.iterrows():
                 st.session_state.quotas_24h[r["Dr"]] = int(r["Max 24h"])
                 st.session_state.quotas_16h[r["Dr"]] = int(r["Max 16h"])
-            st.success("Kaydedildi!")
+                st.session_state.seniority[r["Dr"]] = r["Kıdem"]
+            st.success("Kaydedildi! Artık algoritma bu kıdemlere göre denge kuracak.")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 3: MANUEL KISITLAR (HIZLI GİRİŞ VE GÖRSEL UYARI)
+# TAB 3: MANUEL KISITLAR
 with t3:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    
-    # --- YENİ BÖLÜM: TOPLU GİRİŞ ARACI ---
     with st.expander("⚡ Hızlı & Toplu Veri Girişi (Burası Çok Hızlı!)", expanded=True):
         st.info("Tek tek uğraşma! Doktoru seç, günleri işaretle ve tek tıkla ata.")
         c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
@@ -308,7 +301,6 @@ with t3:
         
         with c_b2:
             st.write("3. Günleri Seç:")
-            # Multi-select ile günleri seçtirme
             days_labels = [f"{d}" for d in range(1, num_days+1)]
             selected_days = st.multiselect("Günler", days_labels, label_visibility="collapsed")
         
@@ -319,60 +311,38 @@ with t3:
                 if bulk_doc and selected_days:
                     val_map = {"🔴 24 (Nöbet)": "24", "🟢 16 (Nöbet)": "16", "❌ Mazeret (Boşalt)": "X", "🗑️ Temizle (Sil)": ""}
                     val = val_map[bulk_type]
-                    
                     for day_str in selected_days:
                         d = int(day_str)
                         k = f"{bulk_doc}_{d}"
                         if val:
                             st.session_state.manual_constraints[k] = val
-                            # Otomatik bloklama (Sadece 24 ise) - Görsel olarak ekler
                             if val == "24":
                                 for off in range(1, rest_days_24h+1):
-                                    if d+off <= num_days:
-                                        # Eğer orada başka bir kısıt yoksa visual block koy
-                                        if f"{bulk_doc}_{d+off}" not in st.session_state.manual_constraints:
-                                            st.session_state.manual_constraints[f"{bulk_doc}_{d+off}"] = "⛔"
+                                    if d+off <= num_days and f"{bulk_doc}_{d+off}" not in st.session_state.manual_constraints:
+                                        st.session_state.manual_constraints[f"{bulk_doc}_{d+off}"] = "⛔"
                         else:
-                            # Temizleme
                             if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
-                    
                     st.success(f"{len(selected_days)} güne işlem uygulandı!")
                     st.session_state.editor_key += 1
                     st.rerun()
 
     st.markdown("---")
     st.markdown("#### 📋 Detaylı Tablo Görünümü")
-    st.caption("Not: '⛔' işareti sizin dikkatinizi çekmek içindir. **AI hesaplama yaparken bu işareti görmezden gelir.** Böylece kurallar izin veriyorsa (örn: 1 gün boşluk varsa) o güne 16h nöbet yazabilir.")
-
-    # Tablo Verisi Hazırlama
+    
     c_data = []
     for doc in st.session_state.doctors:
         r = {"Doktor": doc}
         for d in range(1, num_days+1): 
-            # Veride ne varsa onu çekiyoruz
             r[str(d)] = st.session_state.manual_constraints.get(f"{doc}_{d}", "")
         c_data.append(r)
         
     col_cfg = {"Doktor": st.column_config.TextColumn(disabled=True)}
     for d in range(1, num_days+1):
         dn = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][datetime(st.session_state.year, st.session_state.month, d).weekday()]
-        # Emoji Destekli Dropdown
-        col_cfg[str(d)] = st.column_config.SelectboxColumn(
-            label=f"{d}\n{dn}", 
-            options=["", "24", "16", "X", "⛔"], 
-            width="small"
-        )
+        col_cfg[str(d)] = st.column_config.SelectboxColumn(label=f"{d}\n{dn}", options=["", "24", "16", "X", "⛔"], width="small")
         
     with st.form("const_manual"):
-        ed_cons = st.data_editor(
-            pd.DataFrame(c_data), 
-            height=600, 
-            column_config=col_cfg, 
-            hide_index=True, 
-            use_container_width=True, 
-            key=f"cons_ed_{st.session_state.editor_key}"
-        )
-        
+        ed_cons = st.data_editor(pd.DataFrame(c_data), height=600, column_config=col_cfg, hide_index=True, use_container_width=True, key=f"cons_ed_{st.session_state.editor_key}")
         if st.form_submit_button("💾 Tablodan Kaydet"):
             updated = False
             for i, r in ed_cons.iterrows():
@@ -380,37 +350,32 @@ with t3:
                 for d in range(1, num_days+1):
                     val = str(r[str(d)])
                     k = f"{doc}_{d}"
-                    
-                    # Mevcut değerden farklıysa güncelle
                     if val != st.session_state.manual_constraints.get(k, ""):
                         if val in ["24", "16", "X", "⛔"]:
                             st.session_state.manual_constraints[k] = val
-                            
-                            # OTOMATİK BLOKLAMA MANTIĞI (Görsel)
                             if val == "24":
                                 for off in range(1, rest_days_24h+1):
-                                    if d+off <= num_days: 
-                                        st.session_state.manual_constraints[f"{doc}_{d+off}"] = "⛔"
+                                    if d+off <= num_days: st.session_state.manual_constraints[f"{doc}_{d+off}"] = "⛔"
                         else:
                             if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
                         updated = True
-            
-            if updated: 
-                st.session_state.editor_key += 1 # Force refresh
-                st.rerun()
-            else: 
-                st.success("Değişiklik yok.")
+            if updated: st.session_state.editor_key += 1; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # TAB 4: HESAPLAMA
 with t4:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     if st.button("🚀 Nöbetleri Dağıt (AI)", type="primary", use_container_width=True):
-        with st.spinner("Hesaplanıyor..."):
+        with st.spinner("Kıdem dengesi ve kurallar hesaplanıyor..."):
             model = cp_model.CpModel()
             docs = st.session_state.doctors
             days = range(1, num_days+1)
             x24, x16 = {}, {}
+
+            # Kıdem Gruplarını Ayır
+            seniors = [d for d in docs if st.session_state.seniority.get(d) == "Kıdemli"]
+            mids = [d for d in docs if st.session_state.seniority.get(d) == "Orta"]
+            juniors = [d for d in docs if st.session_state.seniority.get(d) == "Çömez"]
 
             for d in docs:
                 for t in days:
@@ -424,32 +389,30 @@ with t4:
                 model.Add(sum(x24[(d,t)] for d in docs) == need24)
                 model.Add(sum(x16[(d,t)] for d in docs) == need16)
 
+            # Temel Kurallar (Dinlenme, Peş Peşe Gelmeme vb.)
             for d in docs:
                 for t in range(1, num_days):
-                    # Bir gün nöbet tutan ertesi gün tutamaz
                     model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
                 
-                # 24 Saatlik Nöbet Sonrası Dinlenme Kuralı (Slider'a göre)
                 win = rest_days_24h + 1
                 for i in range(len(days) - win + 1):
                     wd = [days[j] for j in range(i, i+win)]
-                    # 24'lük nöbetleri seyrelt (16'lığı etkilemez)
                     model.Add(sum(x24[(d,k)] for k in wd) <= 1)
 
+            # Manuel Kısıtlar
             for d in docs:
                 for t in days:
-                    # Constraint kontrolü (Genişletilmiş)
                     c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
                     if c == "24": model.Add(x24[(d,t)] == 1)
                     elif c == "16": model.Add(x16[(d,t)] == 1)
-                    elif c == "X": # X Kesinlikle Yasak
+                    elif c == "X": 
                         model.Add(x24[(d,t)] == 0)
                         model.Add(x16[(d,t)] == 0)
-                    elif c == "⛔": 
-                        # ÖNEMLİ: '⛔' işaretini AI görmezden gelir.
-                        pass
 
-            deviations = []
+            # --- AMAÇ FONKSİYONU (CEZALANDIRMA SİSTEMİ) ---
+            penalties = []
+
+            # 1. Kota Sapmaları (En Önemlisi)
             for d in docs:
                 tot24 = sum(x24[(d,t)] for t in days)
                 tgt24 = st.session_state.quotas_24h.get(d, 0)
@@ -458,24 +421,55 @@ with t4:
                     model.Add(tot24 <= tgt24) 
                     diff = model.NewIntVar(0, 31, f'd24_{d}')
                     model.Add(diff == tgt24 - tot24)
-                    deviations.append(diff)
+                    # Kotayı tutturamamak büyük ceza (Ağırlık: 100)
+                    penalties.append(diff * 100)
                 
                 tot16 = sum(x16[(d,t)] for t in days)
                 tgt16 = st.session_state.quotas_16h.get(d, 0)
                 if "Katı" in solver_mode: model.Add(tot16 <= tgt16)
                 else:
                     model.Add(tot16 <= tgt16)
-                    diff = model.NewIntVar(0, 31, f'd16_{d}')
-                    model.Add(diff == tgt16 - tot16)
-                    deviations.append(diff)
-            
-            if "Esnek" in solver_mode: model.Minimize(sum(deviations))
+                    diff_16 = model.NewIntVar(0, 31, f'd16_{d}')
+                    model.Add(diff_16 == tgt16 - tot16)
+                    penalties.append(diff_16 * 100)
+
+            # 2. Kıdem Dengesi (İkinci Öncelik)
+            # Her gün için Kıdemli, Orta ve Çömez sayılarının farkını minimize et
+            # Sadece 24 Saat nöbeti için denge kuruyoruz (ana ekip)
+            if "Esnek" in solver_mode:
+                for t in days:
+                    count_S = sum(x24[(d,t)] for d in seniors)
+                    count_M = sum(x24[(d,t)] for d in mids)
+                    count_J = sum(x24[(d,t)] for d in juniors)
+
+                    # Farkları hesapla (Senior vs Mid, Mid vs Junior)
+                    # Mutlak değer yerine: diff >= a - b ve diff >= b - a tekniği
+                    
+                    # Senior vs Mid farkı
+                    diff_SM = model.NewIntVar(0, 10, f'diff_SM_{t}')
+                    model.Add(diff_SM >= count_S - count_M)
+                    model.Add(diff_SM >= count_M - count_S)
+                    penalties.append(diff_SM * 10) # Dengesizliğin cezası daha düşük (Ağırlık: 10)
+
+                    # Mid vs Junior farkı
+                    diff_MJ = model.NewIntVar(0, 10, f'diff_MJ_{t}')
+                    model.Add(diff_MJ >= count_M - count_J)
+                    model.Add(diff_MJ >= count_J - count_M)
+                    penalties.append(diff_MJ * 10)
+                    
+                    # Senior vs Junior farkı
+                    diff_SJ = model.NewIntVar(0, 10, f'diff_SJ_{t}')
+                    model.Add(diff_SJ >= count_S - count_J)
+                    model.Add(diff_SJ >= count_J - count_S)
+                    penalties.append(diff_SJ * 10)
+
+            if "Esnek" in solver_mode: model.Minimize(sum(penalties))
 
             solver = cp_model.CpSolver()
             status = solver.Solve(model)
 
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-                st.success("✅ Çizelge Hazır!")
+                st.success("✅ Dengeli Çizelge Hazır!")
                 res_mx, res_lst = [], []
                 stats = {d: {"24h":0, "16h":0} for d in docs}
                 
@@ -484,14 +478,29 @@ with t4:
                     dstr = f"{t:02d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dt.weekday()]}"
                     rm = {"Tarih": dstr}
                     l24, l16 = [], []
+                    
+                    # Günlük Kıdem İstatistiği
+                    daily_s, daily_m, daily_j = 0, 0, 0
+                    
                     for d in docs:
                         if solver.Value(x24[(d,t)]): 
                             rm[d]="24h"; l24.append(d); stats[d]["24h"]+=1
+                            kdm = st.session_state.seniority.get(d, "Orta")
+                            if kdm=="Kıdemli": daily_s+=1
+                            elif kdm=="Orta": daily_m+=1
+                            elif kdm=="Çömez": daily_j+=1
                         elif solver.Value(x16[(d,t)]): 
                             rm[d]="16h"; l16.append(d); stats[d]["16h"]+=1
                         else: rm[d]=""
+                    
                     res_mx.append(rm)
-                    res_lst.append({"Tarih": dstr, "24 Saat": ", ".join(l24), "16 Saat": ", ".join(l16)})
+                    # Listeye Kıdem Bilgisini de ekleyelim
+                    res_lst.append({
+                        "Tarih": dstr, 
+                        "24 Saat": ", ".join(l24), 
+                        "16 Saat": ", ".join(l16),
+                        "Dağılım (K-O-Ç)": f"{daily_s}-{daily_m}-{daily_j}"
+                    })
                 
                 stat_data = []
                 for d in docs:
@@ -499,6 +508,7 @@ with t4:
                     t16 = st.session_state.quotas_16h.get(d, 0)
                     stat_data.append({
                         "Doktor": d,
+                        "Kıdem": st.session_state.seniority.get(d, "Orta"),
                         "24h (Hedef)": t24, "24h (Gerçek)": stats[d]["24h"],
                         "16h (Hedef)": t16, "16h (Gerçek)": stats[d]["16h"],
                         "Durum": "✅ Tam" if (stats[d]["24h"]==t24 and stats[d]["16h"]==t16) else "⚠️ Eksik"
@@ -509,9 +519,11 @@ with t4:
                 df_st = pd.DataFrame(stat_data)
                 
                 st.dataframe(df_st, use_container_width=True)
-                vt1, vt2 = st.tabs(["Renkli Genel Tablo", "Günlük Liste Görünümü"])
+                vt1, vt2 = st.tabs(["Renkli Genel Tablo", "Günlük Liste ve Dağılım"])
                 with vt1: st.dataframe(df_mx.style.applymap(lambda v: 'background-color: #ef4444; color: white' if v=='24h' else ('background-color: #22c55e; color: white' if v=='16h' else '')), use_container_width=True)
-                with vt2: st.dataframe(df_ls, use_container_width=True)
+                with vt2: 
+                    st.dataframe(df_ls, use_container_width=True)
+                    st.caption("K-O-Ç: Kıdemli, Orta, Çömez sayısı")
                 
                 buf = io.BytesIO()
                 with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
