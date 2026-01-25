@@ -167,6 +167,11 @@ if 'manual_constraints' not in st.session_state: st.session_state.manual_constra
 
 # --- SIDEBAR ---
 with st.sidebar:
+    # --- QR KOD ALANI ---
+    # Bu URL otomatik QR oluşturur, ekstra kütüphane gerektirmez.
+    qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://nobetinator-ai-2ky3vucfai5wkcdnmkvqsm.streamlit.app"
+    st.image(qr_url, width=130, caption="📱 Mobilden Giriş")
+    
     st.title("🌑 Nobetinator Pro")
     st.caption("AI Destekli Nöbet Planlama")
     st.markdown("---")
@@ -185,7 +190,6 @@ with st.sidebar:
     num_days = calendar.monthrange(selected_year, selected_month)[1]
     st.markdown("---")
     st.subheader("⚙️ Kurallar")
-    # Kullanıcıyı yönlendiriyoruz
     st.info("💡 16h nöbetini 24h'den sonraki 2. güne koymak için burayı '1' veya '2' olarak ayarlayın.")
     rest_days_24h = st.slider("24h Sonrası Yasaklı Gün", 1, 5, 2)
     
@@ -422,15 +426,14 @@ with t4:
 
             for d in docs:
                 for t in range(1, num_days):
-                    # Bir gün nöbet tutan ertesi gün tutamaz (Standart yorgunluk kuralı)
+                    # Bir gün nöbet tutan ertesi gün tutamaz
                     model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
                 
                 # 24 Saatlik Nöbet Sonrası Dinlenme Kuralı (Slider'a göre)
                 win = rest_days_24h + 1
                 for i in range(len(days) - win + 1):
                     wd = [days[j] for j in range(i, i+win)]
-                    # Bu aralıkta en fazla bir tane 24 saatlik nöbet olabilir.
-                    # ÖNEMLİ: Bu kural 16 saatlik nöbetleri engellemez, sadece sık 24 nöbetini engeller.
+                    # 24'lük nöbetleri seyrelt (16'lığı etkilemez)
                     model.Add(sum(x24[(d,k)] for k in wd) <= 1)
 
             for d in docs:
@@ -443,8 +446,7 @@ with t4:
                         model.Add(x24[(d,t)] == 0)
                         model.Add(x16[(d,t)] == 0)
                     elif c == "⛔": 
-                        # ÖNEMLİ DEĞİŞİKLİK: '⛔' işaretini AI görmezden geliyor.
-                        # Sadece görsel uyarıdır. Matematiksel kısıt eklemiyoruz (pass).
+                        # ÖNEMLİ: '⛔' işaretini AI görmezden gelir.
                         pass
 
             deviations = []
