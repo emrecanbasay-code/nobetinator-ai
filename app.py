@@ -86,7 +86,7 @@ def save_current_month_data():
         "daily_needs_16h": st.session_state.daily_needs_16h.copy(),
         "quotas_24h": st.session_state.quotas_24h.copy(),
         "quotas_16h": st.session_state.quotas_16h.copy(),
-        "seniority": st.session_state.seniority.copy(), # Kıdem verisi eklendi
+        "seniority": st.session_state.seniority.copy(), 
         "manual_constraints": st.session_state.manual_constraints.copy()
     }
 
@@ -177,7 +177,7 @@ with st.sidebar:
         if st.button("Listeye Ekle") and new_doc:
             if new_doc not in st.session_state.doctors:
                 st.session_state.doctors.append(new_doc)
-                st.session_state.seniority[new_doc] = "Orta" # Varsayılan kıdem
+                st.session_state.seniority[new_doc] = "Orta" 
                 st.rerun()
         rem_doc = st.selectbox("Silinecek İsim", [""] + st.session_state.doctors)
         if st.button("Listeden Sil") and rem_doc:
@@ -245,13 +245,23 @@ with t1:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 2: KOTALAR VE KIDEM
+# TAB 2: KOTALAR VE KIDEM (GÜNCELLENEN KISIM - SAYAÇLAR GERİ GELDİ)
 with t2:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 🎯 Doktor Kotaları ve Kıdem Durumu")
     st.info("Kıdem sütununu kullanarak doktorları 'Kıdemli', 'Orta', 'Çömez' olarak etiketleyin. AI nöbetleri eşit dağıtmaya çalışacaktır.")
     
-    # Veri hazırlama
+    # --- GERİ GETİRİLEN KISIM BAŞLANGIÇ ---
+    total_need_24 = sum(st.session_state.daily_needs_24h.get(d, 1) for d in range(1, num_days+1))
+    total_need_16 = sum(st.session_state.daily_needs_16h.get(d, 1) for d in range(1, num_days+1))
+    current_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
+    current_dist_16 = sum(st.session_state.quotas_16h.get(d, 0) for d in st.session_state.doctors)
+    
+    col_q1, col_q2 = st.columns(2)
+    col_q1.metric("24h İhtiyaç / Dağıtılan", f"{total_need_24} / {current_dist_24}", delta=f"{current_dist_24 - total_need_24}", delta_color="off")
+    col_q2.metric("16h İhtiyaç / Dağıtılan", f"{total_need_16} / {current_dist_16}", delta=f"{current_dist_16 - total_need_16}", delta_color="off")
+    # --- GERİ GETİRİLEN KISIM BİTİŞ ---
+    
     q_data = []
     for d in st.session_state.doctors:
         q_data.append({
@@ -262,7 +272,6 @@ with t2:
         })
 
     with st.form("quotas_manual"):
-        # Selectbox Column for Seniority
         qdf = st.data_editor(
             pd.DataFrame(q_data), 
             height=600, 
@@ -284,7 +293,7 @@ with t2:
                 st.session_state.quotas_24h[r["Dr"]] = int(r["Max 24h"])
                 st.session_state.quotas_16h[r["Dr"]] = int(r["Max 16h"])
                 st.session_state.seniority[r["Dr"]] = r["Kıdem"]
-            st.success("Kaydedildi! Artık algoritma bu kıdemlere göre denge kuracak.")
+            st.success("Kaydedildi!")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -362,20 +371,21 @@ with t3:
             if updated: st.session_state.editor_key += 1; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 4: HESAPLAMA
+# TAB 4: HESAPLAMA (ZAMAN SINIRI EKLİ)
 with t4:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
+    calc_time = st.slider("Maksimum Hesaplama Süresi (Saniye)", 10, 60, 30, help="AI çok zorlanırsa bu süre sonunda bulduğu en iyi sonucu verir.")
+
     if st.button("🚀 Nöbetleri Dağıt (AI)", type="primary", use_container_width=True):
-        with st.spinner("Kıdem dengesi ve kurallar hesaplanıyor..."):
+        with st.spinner("Kıdem dengesi ve kurallar hesaplanıyor... Lütfen bekleyin..."):
             model = cp_model.CpModel()
             docs = st.session_state.doctors
             days = range(1, num_days+1)
             x24, x16 = {}, {}
 
-            # Kıdem Gruplarını Ayır
-            seniors = [d for d in docs if st.session_state.seniority.get(d) == "Kıdemli"]
-            mids = [d for d in docs if st.session_state.seniority.get(d) == "Orta"]
-            juniors = [d for d in docs if st.session_state.seniority.get(d) == "Çömez"]
+            seniors = [d for d in docs if st.session_state.seniority.get(d, "Orta") == "Kıdemli"]
+            mids = [d for d in docs if st.session_state.seniority.get(d, "Orta") == "Orta"]
+            juniors = [d for d in docs if st.session_state.seniority.get(d, "Orta") == "Çömez"]
 
             for d in docs:
                 for t in days:
@@ -389,7 +399,6 @@ with t4:
                 model.Add(sum(x24[(d,t)] for d in docs) == need24)
                 model.Add(sum(x16[(d,t)] for d in docs) == need16)
 
-            # Temel Kurallar (Dinlenme, Peş Peşe Gelmeme vb.)
             for d in docs:
                 for t in range(1, num_days):
                     model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
@@ -399,7 +408,6 @@ with t4:
                     wd = [days[j] for j in range(i, i+win)]
                     model.Add(sum(x24[(d,k)] for k in wd) <= 1)
 
-            # Manuel Kısıtlar
             for d in docs:
                 for t in days:
                     c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
@@ -409,67 +417,60 @@ with t4:
                         model.Add(x24[(d,t)] == 0)
                         model.Add(x16[(d,t)] == 0)
 
-            # --- AMAÇ FONKSİYONU (CEZALANDIRMA SİSTEMİ) ---
             penalties = []
-
-            # 1. Kota Sapmaları (En Önemlisi)
             for d in docs:
                 tot24 = sum(x24[(d,t)] for t in days)
                 tgt24 = st.session_state.quotas_24h.get(d, 0)
-                if "Katı" in solver_mode: model.Add(tot24 <= tgt24)
-                else:
-                    model.Add(tot24 <= tgt24) 
-                    diff = model.NewIntVar(0, 31, f'd24_{d}')
-                    model.Add(diff == tgt24 - tot24)
-                    # Kotayı tutturamamak büyük ceza (Ağırlık: 100)
-                    penalties.append(diff * 100)
-                
                 tot16 = sum(x16[(d,t)] for t in days)
                 tgt16 = st.session_state.quotas_16h.get(d, 0)
-                if "Katı" in solver_mode: model.Add(tot16 <= tgt16)
-                else:
-                    model.Add(tot16 <= tgt16)
-                    diff_16 = model.NewIntVar(0, 31, f'd16_{d}')
-                    model.Add(diff_16 == tgt16 - tot16)
-                    penalties.append(diff_16 * 100)
 
-            # 2. Kıdem Dengesi (İkinci Öncelik)
-            # Her gün için Kıdemli, Orta ve Çömez sayılarının farkını minimize et
-            # Sadece 24 Saat nöbeti için denge kuruyoruz (ana ekip)
+                if "Katı" in solver_mode:
+                    model.Add(tot24 <= tgt24)
+                    model.Add(tot16 <= tgt16)
+                else:
+                    diff24 = model.NewIntVar(0, 31, f'd24_{d}')
+                    model.Add(diff24 >= tgt24 - tot24)
+                    model.Add(diff24 >= tot24 - tgt24)
+                    penalties.append(diff24 * 50)
+
+                    diff16 = model.NewIntVar(0, 31, f'd16_{d}')
+                    model.Add(diff16 >= tgt16 - tot16)
+                    model.Add(diff16 >= tot16 - tgt16)
+                    penalties.append(diff16 * 50)
+
             if "Esnek" in solver_mode:
                 for t in days:
-                    count_S = sum(x24[(d,t)] for d in seniors)
-                    count_M = sum(x24[(d,t)] for d in mids)
-                    count_J = sum(x24[(d,t)] for d in juniors)
+                    c_s = sum(x24[(d,t)] for d in seniors)
+                    c_m = sum(x24[(d,t)] for d in mids)
+                    c_j = sum(x24[(d,t)] for d in juniors)
 
-                    # Farkları hesapla (Senior vs Mid, Mid vs Junior)
-                    # Mutlak değer yerine: diff >= a - b ve diff >= b - a tekniği
-                    
-                    # Senior vs Mid farkı
-                    diff_SM = model.NewIntVar(0, 10, f'diff_SM_{t}')
-                    model.Add(diff_SM >= count_S - count_M)
-                    model.Add(diff_SM >= count_M - count_S)
-                    penalties.append(diff_SM * 10) # Dengesizliğin cezası daha düşük (Ağırlık: 10)
+                    if seniors and mids:
+                        d_sm = model.NewIntVar(0, 10, f'd_sm_{t}')
+                        model.Add(d_sm >= c_s - c_m)
+                        model.Add(d_sm >= c_m - c_s)
+                        penalties.append(d_sm * 5)
 
-                    # Mid vs Junior farkı
-                    diff_MJ = model.NewIntVar(0, 10, f'diff_MJ_{t}')
-                    model.Add(diff_MJ >= count_M - count_J)
-                    model.Add(diff_MJ >= count_J - count_M)
-                    penalties.append(diff_MJ * 10)
+                    if mids and juniors:
+                        d_mj = model.NewIntVar(0, 10, f'd_mj_{t}')
+                        model.Add(d_mj >= c_m - c_j)
+                        model.Add(d_mj >= c_j - c_m)
+                        penalties.append(d_mj * 5)
                     
-                    # Senior vs Junior farkı
-                    diff_SJ = model.NewIntVar(0, 10, f'diff_SJ_{t}')
-                    model.Add(diff_SJ >= count_S - count_J)
-                    model.Add(diff_SJ >= count_J - count_S)
-                    penalties.append(diff_SJ * 10)
+                    if seniors and juniors:
+                        d_sj = model.NewIntVar(0, 10, f'd_sj_{t}')
+                        model.Add(d_sj >= c_s - c_j)
+                        model.Add(d_sj >= c_j - c_s)
+                        penalties.append(d_sj * 5)
 
             if "Esnek" in solver_mode: model.Minimize(sum(penalties))
 
             solver = cp_model.CpSolver()
+            solver.parameters.max_time_in_seconds = float(calc_time) 
             status = solver.Solve(model)
 
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-                st.success("✅ Dengeli Çizelge Hazır!")
+                st.success(f"✅ Çizelge Hazır! (Durum: {solver.StatusName(status)})")
+                
                 res_mx, res_lst = [], []
                 stats = {d: {"24h":0, "16h":0} for d in docs}
                 
@@ -478,23 +479,22 @@ with t4:
                     dstr = f"{t:02d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dt.weekday()]}"
                     rm = {"Tarih": dstr}
                     l24, l16 = [], []
-                    
-                    # Günlük Kıdem İstatistiği
                     daily_s, daily_m, daily_j = 0, 0, 0
                     
                     for d in docs:
-                        if solver.Value(x24[(d,t)]): 
+                        is_24 = solver.Value(x24[(d,t)])
+                        is_16 = solver.Value(x16[(d,t)])
+                        if is_24: 
                             rm[d]="24h"; l24.append(d); stats[d]["24h"]+=1
                             kdm = st.session_state.seniority.get(d, "Orta")
                             if kdm=="Kıdemli": daily_s+=1
                             elif kdm=="Orta": daily_m+=1
                             elif kdm=="Çömez": daily_j+=1
-                        elif solver.Value(x16[(d,t)]): 
+                        elif is_16: 
                             rm[d]="16h"; l16.append(d); stats[d]["16h"]+=1
                         else: rm[d]=""
                     
                     res_mx.append(rm)
-                    # Listeye Kıdem Bilgisini de ekleyelim
                     res_lst.append({
                         "Tarih": dstr, 
                         "24 Saat": ", ".join(l24), 
@@ -511,7 +511,7 @@ with t4:
                         "Kıdem": st.session_state.seniority.get(d, "Orta"),
                         "24h (Hedef)": t24, "24h (Gerçek)": stats[d]["24h"],
                         "16h (Hedef)": t16, "16h (Gerçek)": stats[d]["16h"],
-                        "Durum": "✅ Tam" if (stats[d]["24h"]==t24 and stats[d]["16h"]==t16) else "⚠️ Eksik"
+                        "Durum": "✅" if stats[d]["24h"]==t24 else "⚠️"
                     })
                 
                 df_mx = pd.DataFrame(res_mx)
@@ -521,9 +521,7 @@ with t4:
                 st.dataframe(df_st, use_container_width=True)
                 vt1, vt2 = st.tabs(["Renkli Genel Tablo", "Günlük Liste ve Dağılım"])
                 with vt1: st.dataframe(df_mx.style.applymap(lambda v: 'background-color: #ef4444; color: white' if v=='24h' else ('background-color: #22c55e; color: white' if v=='16h' else '')), use_container_width=True)
-                with vt2: 
-                    st.dataframe(df_ls, use_container_width=True)
-                    st.caption("K-O-Ç: Kıdemli, Orta, Çömez sayısı")
+                with vt2: st.dataframe(df_ls, use_container_width=True)
                 
                 buf = io.BytesIO()
                 with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
@@ -532,5 +530,5 @@ with t4:
                     df_st.to_excel(writer, sheet_name='Istatistik', index=False)
                 st.download_button("📥 Excel Olarak İndir", buf.getvalue(), "nobet_cizelgesi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             else:
-                st.error("Çözüm Bulunamadı! Kısıtları gevşetin.")
+                st.error("⚠️ Çözüm Bulunamadı veya Zaman Yetmedi!")
     st.markdown('</div>', unsafe_allow_html=True)
