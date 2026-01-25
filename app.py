@@ -6,76 +6,94 @@ from datetime import datetime
 import calendar
 import io
 import xlsxwriter
+import time
 
-# --- SAYFA VE TASARIM AYARLARI ---
+# -----------------------------------------------------------------------------
+# 1. AYARLAR VE SAYFA YAPILANDIRMASI
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Nobetinator AI",
-    page_icon="🌑",
+    page_title="Nobetinator Pro v2.0",
+    page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- DARK PRO CSS TASARIMI ---
+# -----------------------------------------------------------------------------
+# 2. PROFESYONEL CSS TASARIMI (MODERN UI)
+# -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    .stApp { background-color: #0f172a !important; }
-    h1, h2, h3, h4, h5, h6, p, span, div, label { color: #e2e8f0 !important; }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 1px solid #334155; }
+    /* GENEL SAYFA YAPISI */
+    .stApp { background-color: #0f172a; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     
-    .css-card { 
-        background-color: #1e293b !important; 
-        padding: 25px; 
-        border-radius: 12px; 
+    /* BAŞLIKLAR VE METİNLER */
+    h1, h2, h3 { color: #f8fafc !important; font-weight: 700; }
+    p, label, span, div { color: #cbd5e1; }
+    
+    /* SIDEBAR */
+    [data-testid="stSidebar"] { background-color: #1e293b; border-right: 1px solid #334155; }
+    
+    /* KART TASARIMI (BEYAZ ÇERÇEVELİ KUTULAR) */
+    .css-card {
+        background-color: #1e293b;
+        padding: 20px;
+        border-radius: 12px;
         border: 1px solid #334155;
-        margin-bottom: 25px; 
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        margin-bottom: 20px;
     }
     
-    div[data-testid="stMetric"] { 
-        background-color: #1e293b !important; 
-        border: 1px solid #334155; 
-        padding: 15px; 
-        border-radius: 10px; 
-        text-align: center;
+    /* METRİK KUTULARI */
+    div[data-testid="stMetric"] {
+        background-color: #334155;
+        border-radius: 8px;
+        padding: 10px;
+        border: 1px solid #475569;
     }
-    div[data-testid="stMetricLabel"] > div { color: #94a3b8 !important; }
-    div[data-testid="stMetricValue"] > div { color: #38bdf8 !important; }
+    div[data-testid="stMetricLabel"] > div { color: #94a3b8 !important; font-size: 0.9rem; }
+    div[data-testid="stMetricValue"] > div { color: #38bdf8 !important; font-weight: 700; }
     
-    .stButton>button { 
-        background-color: #3b82f6 !important; 
-        color: white !important; 
-        border-radius: 8px; 
-        border: none; 
-        padding: 0.6rem 1.2rem; 
-        font-weight: 600; 
-        box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
-        transition: all 0.2s ease; 
+    /* BUTONLAR */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.3s ease;
     }
-    .stButton>button:hover { 
-        background-color: #2563eb !important; 
-        transform: translateY(-2px);
+    /* Birincil Buton (Mavi) */
+    .stButton>button[kind="primary"] {
+        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
     }
+    .stButton>button[kind="primary"]:hover { transform: scale(1.02); }
     
+    /* TABLO DÜZENİ */
     div[data-testid="stDataEditor"] {
-        background-color: #1e293b; 
-        border-radius: 10px;
-        border: 1px solid #334155;
-        min-height: 500px !important; 
-    }
-    div[data-testid="stDataEditor"] * {
-        color: #e2e8f0 !important;
-        background-color: #1e293b !important;
-        font-size: 1.05rem !important; 
+        border: 1px solid #475569;
+        border-radius: 8px;
+        overflow: hidden;
     }
     
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; }
-    .stTabs [data-baseweb="tab"] { background-color: #1e293b; border-radius: 5px; color: #94a3b8; border: 1px solid #334155; }
-    .stTabs [aria-selected="true"] { background-color: #3b82f6 !important; color: white !important; border: none; }
-    header {visibility: hidden;}
+    /* SEKME (TAB) TASARIMI */
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        color: #94a3b8;
+        padding: 8px 16px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #3b82f6 !important;
+        color: white !important;
+        border-color: #3b82f6 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- YARDIMCI FONKSİYONLAR ---
+# -----------------------------------------------------------------------------
+# 3. VERİ YÖNETİMİ VE FONKSİYONLAR
+# -----------------------------------------------------------------------------
 def get_storage_key(y, m): return f"{y}_{m}"
 
 def save_current_month_data():
@@ -86,7 +104,7 @@ def save_current_month_data():
         "daily_needs_16h": st.session_state.daily_needs_16h.copy(),
         "quotas_24h": st.session_state.quotas_24h.copy(),
         "quotas_16h": st.session_state.quotas_16h.copy(),
-        "seniority": st.session_state.seniority.copy(), 
+        "seniority": st.session_state.seniority.copy(),
         "manual_constraints": st.session_state.manual_constraints.copy()
     }
 
@@ -101,6 +119,7 @@ def load_month_data(y, m):
         st.session_state.seniority = data.get("seniority", {k["isim"]: "Orta" for k in VARSAYILAN_EKIP})
         st.session_state.manual_constraints = data["manual_constraints"]
     else:
+        # Veri yoksa sıfırla/varsayılana dön
         st.session_state.daily_needs_24h = {}
         st.session_state.daily_needs_16h = {}
         st.session_state.quotas_24h = {k["isim"]: k["kota24"] for k in VARSAYILAN_EKIP}
@@ -108,7 +127,7 @@ def load_month_data(y, m):
         st.session_state.seniority = {k["isim"]: "Orta" for k in VARSAYILAN_EKIP}
         st.session_state.manual_constraints = {}
 
-# --- BAŞLANGIÇ VE KADRO AYARLARI ---
+# Varsayılan Kadro
 VARSAYILAN_EKIP = [
     {"isim": "A01", "kota24": 8, "kota16": 0}, {"isim": "A02", "kota24": 8, "kota16": 0},
     {"isim": "A03", "kota24": 8, "kota16": 0}, {"isim": "A4",  "kota24": 8, "kota16": 0},
@@ -129,31 +148,30 @@ VARSAYILAN_EKIP = [
     {"isim": "A33", "kota24": 8, "kota16": 2}
 ]
 
-if 'doctors' not in st.session_state: st.session_state.doctors = [kisi["isim"] for kisi in VARSAYILAN_EKIP]
+# Session State Başlatma
+if 'doctors' not in st.session_state: st.session_state.doctors = [k["isim"] for k in VARSAYILAN_EKIP]
 if 'year' not in st.session_state: st.session_state.year = datetime.now().year
 if 'month' not in st.session_state: st.session_state.month = datetime.now().month
 if 'db' not in st.session_state: st.session_state.db = {}
 if 'editor_key' not in st.session_state: st.session_state.editor_key = 0
 if 'daily_needs_24h' not in st.session_state: st.session_state.daily_needs_24h = {}
 if 'daily_needs_16h' not in st.session_state: st.session_state.daily_needs_16h = {}
-
-if 'quotas_24h' not in st.session_state: st.session_state.quotas_24h = {kisi["isim"]: kisi["kota24"] for kisi in VARSAYILAN_EKIP}
-if 'quotas_16h' not in st.session_state: st.session_state.quotas_16h = {kisi["isim"]: kisi["kota16"] for kisi in VARSAYILAN_EKIP}
-if 'seniority' not in st.session_state: st.session_state.seniority = {kisi["isim"]: "Orta" for kisi in VARSAYILAN_EKIP}
+if 'quotas_24h' not in st.session_state: st.session_state.quotas_24h = {k["isim"]: k["kota24"] for k in VARSAYILAN_EKIP}
+if 'quotas_16h' not in st.session_state: st.session_state.quotas_16h = {k["isim"]: k["kota16"] for k in VARSAYILAN_EKIP}
+if 'seniority' not in st.session_state: st.session_state.seniority = {k["isim"]: "Orta" for k in VARSAYILAN_EKIP}
 if 'manual_constraints' not in st.session_state: st.session_state.manual_constraints = {}
 
-# --- SIDEBAR ---
+# -----------------------------------------------------------------------------
+# 4. YAN MENÜ (SIDEBAR) - KONTROL PANELİ
+# -----------------------------------------------------------------------------
 with st.sidebar:
-    qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://nobetinator-ai-2ky3vucfai5wkcdnmkvqsm.streamlit.app"
-    st.image(qr_url, width=130, caption="📱 Mobilden Giriş")
-    
-    st.title("🌑 Nobetinator Pro")
-    st.caption("AI Destekli Nöbet Planlama")
+    st.markdown("## 🏥 Nobetinator Pro v2.0")
     st.markdown("---")
     
-    col1, col2 = st.columns(2)
-    with col1: selected_year = st.number_input("Yıl", 2020, 2030, st.session_state.year)
-    with col2: selected_month = st.selectbox("Ay", range(1, 13), index=st.session_state.month-1, format_func=lambda x: calendar.month_name[x])
+    # Tarih Seçimi
+    c1, c2 = st.columns(2)
+    with c1: selected_year = st.number_input("Yıl", 2024, 2030, st.session_state.year)
+    with c2: selected_month = st.selectbox("Ay", range(1, 13), index=st.session_state.month-1, format_func=lambda x: calendar.month_name[x])
     
     if selected_year != st.session_state.year or selected_month != st.session_state.month:
         save_current_month_data()
@@ -163,29 +181,30 @@ with st.sidebar:
         st.rerun()
 
     num_days = calendar.monthrange(selected_year, selected_month)[1]
-    st.markdown("---")
-    st.subheader("⚙️ Kurallar")
-    rest_days_24h = st.slider("24h Sonrası Yasaklı Gün", 1, 5, 2)
     
     st.markdown("---")
-    st.subheader("🎛️ AI Stratejisi")
-    solver_mode = st.radio("Mod:", ["Katı Kurallar (Tam Uyum)", "Esnek Mod (Kıdem Dengesi Öncelikli)"], index=1)
-    st.markdown("---")
+    st.markdown("### ⚙️ Algoritma Ayarları")
+    rest_days_24h = st.slider("24s Sonrası İzin (Gün)", 1, 5, 2, help="Nöbetçinin 24 saat nöbetten sonra kaç gün boş kalacağını belirler.")
     
-    with st.expander("👨‍⚕️ Kadro Yönetimi"):
-        new_doc = st.text_input("Eklenecek İsim")
-        if st.button("Listeye Ekle") and new_doc:
+    solver_mode = st.radio("Hesaplama Modu", ["Katı Kurallar (Tam Uyum)", "Esnek Mod (Kıdem Dengesi)"], index=1, help="Esnek mod, kıdemlileri her güne eşit dağıtmaya çalışır.")
+    calc_time = st.slider("Düşünme Süresi (sn)", 10, 60, 30, help="AI'nın çözümü araması için maksimum süre.")
+
+    st.markdown("---")
+    with st.expander("👨‍⚕️ Personel İşlemleri"):
+        new_doc = st.text_input("Yeni Doktor Adı")
+        if st.button("Ekle") and new_doc:
             if new_doc not in st.session_state.doctors:
                 st.session_state.doctors.append(new_doc)
-                st.session_state.seniority[new_doc] = "Orta" 
+                st.session_state.seniority[new_doc] = "Orta"
                 st.rerun()
-        rem_doc = st.selectbox("Silinecek İsim", [""] + st.session_state.doctors)
-        if st.button("Listeden Sil") and rem_doc:
+        
+        rem_doc = st.selectbox("Doktor Sil", [""] + st.session_state.doctors)
+        if st.button("Sil") and rem_doc:
             st.session_state.doctors.remove(rem_doc)
             st.rerun()
-
-    with st.expander("💾 YEDEKLEME (JSON)"):
-        if st.button("Yedek İndir (JSON)"):
+            
+    with st.expander("💾 Veri Yedekleme"):
+        if st.button("Yedeği İndir (JSON)"):
             save_current_month_data()
             d_out = {
                 "doctors": st.session_state.doctors,
@@ -194,341 +213,426 @@ with st.sidebar:
                 "seniority": st.session_state.seniority,
                 "manual_constraints": st.session_state.manual_constraints,
                 "db": {str(k): v for k, v in st.session_state.db.items()},
-                "current_year": st.session_state.year,
-                "current_month": st.session_state.month
+                "year": st.session_state.year, "month": st.session_state.month
             }
-            st.download_button("📥 Dosyayı İndir", json.dumps(d_out, default=str), "nobetinator_tam_yedek.json")
-        
-        upl = st.file_uploader("Yedek Yükle", type=['json'])
-        if upl:
-            try:
-                data = json.load(upl)
-                st.session_state.doctors = data.get('doctors', st.session_state.doctors)
-                if 'quotas_24h' in data: st.session_state.quotas_24h = data['quotas_24h']
-                if 'quotas_16h' in data: st.session_state.quotas_16h = data['quotas_16h']
-                if 'seniority' in data: st.session_state.seniority = data['seniority']
-                if 'manual_constraints' in data: st.session_state.manual_constraints = data['manual_constraints']
-                if 'db' in data: st.session_state.db = data['db']
-                st.success("✅ Veriler yüklendi!")
-                st.rerun()
-            except Exception as e: st.error(f"Hata: {e}")
+            st.download_button("📥 İndir", json.dumps(d_out, default=str), f"yedek_{st.session_state.year}_{st.session_state.month}.json")
 
-# --- DASHBOARD ---
-st.markdown(f"### 🗓️ {calendar.month_name[st.session_state.month]} {st.session_state.year} Dashboard")
+# -----------------------------------------------------------------------------
+# 5. ANA EKRAN (DASHBOARD)
+# -----------------------------------------------------------------------------
+st.title(f"🗓️ {calendar.month_name[st.session_state.month]} {st.session_state.year} Planlama Paneli")
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Toplam Gün", num_days)
-c2.metric("Personel Sayısı", len(st.session_state.doctors))
-c3.metric("Mod", "Esnek & Dengeli" if "Esnek" in solver_mode else "Katı")
-c4.metric("Kısıtlar", len(st.session_state.manual_constraints))
+# Üst Bilgi Kartları
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Toplam Gün", num_days, "Takvim")
+m2.metric("Aktif Personel", len(st.session_state.doctors), "Doktor")
+m3.metric("Kısıt Sayısı", len(st.session_state.manual_constraints), "Özel İstek")
+status_icon = "🟢 Esnek" if "Esnek" in solver_mode else "🔴 Katı"
+m4.metric("AI Modu", status_icon)
 
-st.write("") 
+st.write("") # Boşluk
 
-t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR VE KIDEM", "🔒 KISITLAR (HIZLI GİRİŞ)", "🚀 SONUÇ & RAPOR"])
+# Sekme Yapısı
+tab_needs, tab_quotas, tab_const, tab_run = st.tabs([
+    "📅 1. Günlük İhtiyaç", 
+    "🎯 2. Kota & Kıdem", 
+    "⛔ 3. İzin & İstekler", 
+    "🚀 4. Oluştur & Sonuç"
+])
 
-# TAB 1: GÜNLÜK İHTİYAÇ
-with t1:
+# --- TAB 1: GÜNLÜK İHTİYAÇ ---
+with tab_needs:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.markdown("#### 📅 Günlük Nöbetçi İhtiyacı")
+    st.markdown("#### 🏥 Günlük Nöbetçi Sayısı Belirleme")
+    st.caption("Her gün için kaç tane 24 saatlik, kaç tane 16 saatlik doktora ihtiyacınız olduğunu girin.")
+    
+    # Veri hazırlığı
     for d in range(1, num_days+1):
         if d not in st.session_state.daily_needs_24h: st.session_state.daily_needs_24h[d] = 1
         if d not in st.session_state.daily_needs_16h: st.session_state.daily_needs_16h[d] = 1
-
-    d_data = [{"Gün": d, "Tarih": f"{d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][datetime(st.session_state.year, st.session_state.month, d).weekday()]}", "24h": st.session_state.daily_needs_24h.get(d, 1), "16h": st.session_state.daily_needs_16h.get(d, 1)} for d in range(1, num_days+1)]
-    with st.form("needs_manual"):
-        edf = st.data_editor(pd.DataFrame(d_data), height=500, key=f"need_ed_{st.session_state.editor_key}", use_container_width=True, hide_index=True, column_config={"Gün": st.column_config.NumberColumn(disabled=True), "Tarih": st.column_config.TextColumn(disabled=True)})
-        if st.form_submit_button("💾 Tablodan Kaydet"):
-            for i, r in edf.iterrows():
-                st.session_state.daily_needs_24h[r["Gün"]] = int(r["24h"])
-                st.session_state.daily_needs_16h[r["Gün"]] = int(r["16h"])
-            st.success("Kaydedildi!")
+    
+    data_needs = []
+    for d in range(1, num_days+1):
+        dt = datetime(st.session_state.year, st.session_state.month, d)
+        day_name = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dt.weekday()]
+        data_needs.append({
+            "Gün No": d,
+            "Tarih": f"{d} {calendar.month_name[st.session_state.month]} ({day_name})",
+            "🔴 24 Saat İhtiyacı": st.session_state.daily_needs_24h.get(d, 1),
+            "🟢 16 Saat İhtiyacı": st.session_state.daily_needs_16h.get(d, 1)
+        })
+    
+    df_needs = pd.DataFrame(data_needs)
+    
+    with st.form("form_needs"):
+        edited_needs = st.data_editor(
+            df_needs, 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                "Gün No": st.column_config.NumberColumn(disabled=True),
+                "Tarih": st.column_config.TextColumn(disabled=True),
+                "🔴 24 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=10, step=1),
+                "🟢 16 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=10, step=1)
+            },
+            height=400,
+            key=f"ed_needs_{st.session_state.editor_key}"
+        )
+        if st.form_submit_button("💾 İhtiyaçları Kaydet", type="primary"):
+            for _, r in edited_needs.iterrows():
+                d = r["Gün No"]
+                st.session_state.daily_needs_24h[d] = r["🔴 24 Saat İhtiyacı"]
+                st.session_state.daily_needs_16h[d] = r["🟢 16 Saat İhtiyacı"]
+            st.success("Günlük ihtiyaçlar güncellendi!")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 2: KOTALAR VE KIDEM (GÜNCELLENEN KISIM - SAYAÇLAR GERİ GELDİ)
-with t2:
+# --- TAB 2: KOTA & KIDEM ---
+with tab_quotas:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.markdown("#### 🎯 Doktor Kotaları ve Kıdem Durumu")
-    st.info("Kıdem sütununu kullanarak doktorları 'Kıdemli', 'Orta', 'Çömez' olarak etiketleyin. AI nöbetleri eşit dağıtmaya çalışacaktır.")
+    st.markdown("#### 🎯 Hedef Kotalar ve Kıdem Ayarları")
     
-    # --- GERİ GETİRİLEN KISIM BAŞLANGIÇ ---
-    total_need_24 = sum(st.session_state.daily_needs_24h.get(d, 1) for d in range(1, num_days+1))
-    total_need_16 = sum(st.session_state.daily_needs_16h.get(d, 1) for d in range(1, num_days+1))
-    current_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
-    current_dist_16 = sum(st.session_state.quotas_16h.get(d, 0) for d in st.session_state.doctors)
+    # CANLI SAYAÇLAR (User Request)
+    tot_req_24 = sum(st.session_state.daily_needs_24h.values())
+    tot_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
     
-    col_q1, col_q2 = st.columns(2)
-    col_q1.metric("24h İhtiyaç / Dağıtılan", f"{total_need_24} / {current_dist_24}", delta=f"{current_dist_24 - total_need_24}", delta_color="off")
-    col_q2.metric("16h İhtiyaç / Dağıtılan", f"{total_need_16} / {current_dist_16}", delta=f"{current_dist_16 - total_need_16}", delta_color="off")
-    # --- GERİ GETİRİLEN KISIM BİTİŞ ---
+    tot_req_16 = sum(st.session_state.daily_needs_16h.values())
+    tot_dist_16 = sum(st.session_state.quotas_16h.get(d, 0) for d in st.session_state.doctors)
     
-    q_data = []
-    for d in st.session_state.doctors:
-        q_data.append({
-            "Dr": d,
-            "Max 24h": st.session_state.quotas_24h.get(d, 0),
-            "Max 16h": st.session_state.quotas_16h.get(d, 0),
-            "Kıdem": st.session_state.seniority.get(d, "Orta")
+    col_k1, col_k2 = st.columns(2)
+    with col_k1:
+        st.metric("🔴 24h Dengesi (İhtiyaç / Kapasite)", f"{tot_req_24} / {tot_dist_24}", delta=(tot_dist_24 - tot_req_24))
+    with col_k2:
+        st.metric("🟢 16h Dengesi (İhtiyaç / Kapasite)", f"{tot_req_16} / {tot_dist_16}", delta=(tot_dist_16 - tot_req_16))
+    
+    st.info("💡 **İpucu:** Kapasite (Dağıtılan), İhtiyaçtan azsa nöbet yazılamaz. Fazlaysa AI bazı kişilere daha az nöbet yazar.")
+    
+    # Tablo Verisi
+    data_quota = []
+    for doc in st.session_state.doctors:
+        data_quota.append({
+            "Doktor": doc,
+            "Kıdem": st.session_state.seniority.get(doc, "Orta"),
+            "🔴 Hedef 24h": st.session_state.quotas_24h.get(doc, 0),
+            "🟢 Hedef 16h": st.session_state.quotas_16h.get(doc, 0)
         })
-
-    with st.form("quotas_manual"):
-        qdf = st.data_editor(
-            pd.DataFrame(q_data), 
-            height=600, 
-            key=f"quota_ed_{st.session_state.editor_key}", 
-            use_container_width=True, 
-            hide_index=True, 
+    
+    with st.form("form_quotas"):
+        edited_quotas = st.data_editor(
+            pd.DataFrame(data_quota),
+            use_container_width=True,
+            hide_index=True,
+            key=f"ed_quota_{st.session_state.editor_key}",
+            height=500,
             column_config={
-                "Dr": st.column_config.TextColumn(disabled=True),
-                "Kıdem": st.column_config.SelectboxColumn(
-                    "Kıdem Seviyesi",
-                    options=["Kıdemli", "Orta", "Çömez"],
-                    required=True,
-                    width="medium"
-                )
+                "Doktor": st.column_config.TextColumn(disabled=True),
+                "Kıdem": st.column_config.SelectboxColumn(options=["Kıdemli", "Orta", "Çömez"], required=True),
+                "🔴 Hedef 24h": st.column_config.ProgressColumn(format="%d", min_value=0, max_value=15, width="medium"),
+                "🟢 Hedef 16h": st.column_config.ProgressColumn(format="%d", min_value=0, max_value=15, width="medium")
             }
         )
-        if st.form_submit_button("💾 Tablodan Kaydet"):
-            for i, r in qdf.iterrows():
-                st.session_state.quotas_24h[r["Dr"]] = int(r["Max 24h"])
-                st.session_state.quotas_16h[r["Dr"]] = int(r["Max 16h"])
-                st.session_state.seniority[r["Dr"]] = r["Kıdem"]
-            st.success("Kaydedildi!")
+        if st.form_submit_button("💾 Kotaları ve Kıdemi Kaydet", type="primary"):
+            for _, r in edited_quotas.iterrows():
+                d = r["Doktor"]
+                st.session_state.quotas_24h[d] = r["🔴 Hedef 24h"]
+                st.session_state.quotas_16h[d] = r["🟢 Hedef 16h"]
+                st.session_state.seniority[d] = r["Kıdem"]
+            st.success("Kotalar ve kıdemler kaydedildi.")
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 3: MANUEL KISITLAR
-with t3:
+# --- TAB 3: KISITLAR ---
+with tab_const:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    with st.expander("⚡ Hızlı & Toplu Veri Girişi (Burası Çok Hızlı!)", expanded=True):
-        st.info("Tek tek uğraşma! Doktoru seç, günleri işaretle ve tek tıkla ata.")
-        c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
-        
-        with c_b1:
-            bulk_doc = st.selectbox("1. Doktor Seç:", st.session_state.doctors)
-            bulk_type = st.selectbox("2. Ne Atanacak?", ["🔴 24 (Nöbet)", "🟢 16 (Nöbet)", "❌ Mazeret (Boşalt)", "🗑️ Temizle (Sil)"])
-        
-        with c_b2:
-            st.write("3. Günleri Seç:")
-            days_labels = [f"{d}" for d in range(1, num_days+1)]
-            selected_days = st.multiselect("Günler", days_labels, label_visibility="collapsed")
-        
-        with c_b3:
-            st.write("")
-            st.write("")
-            if st.button("⚡ Uygula", type="primary", use_container_width=True):
-                if bulk_doc and selected_days:
-                    val_map = {"🔴 24 (Nöbet)": "24", "🟢 16 (Nöbet)": "16", "❌ Mazeret (Boşalt)": "X", "🗑️ Temizle (Sil)": ""}
-                    val = val_map[bulk_type]
-                    for day_str in selected_days:
-                        d = int(day_str)
-                        k = f"{bulk_doc}_{d}"
-                        if val:
-                            st.session_state.manual_constraints[k] = val
-                            if val == "24":
-                                for off in range(1, rest_days_24h+1):
-                                    if d+off <= num_days and f"{bulk_doc}_{d+off}" not in st.session_state.manual_constraints:
-                                        st.session_state.manual_constraints[f"{bulk_doc}_{d+off}"] = "⛔"
-                        else:
-                            if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
-                    st.success(f"{len(selected_days)} güne işlem uygulandı!")
-                    st.session_state.editor_key += 1
-                    st.rerun()
+    st.markdown("#### ⚡ Hızlı Veri Girişi (İzinler ve Sabit Nöbetler)")
+    
+    c_bulk1, c_bulk2, c_bulk3 = st.columns([1.5, 3, 1])
+    with c_bulk1:
+        b_doc = st.selectbox("Doktor Seç", st.session_state.doctors)
+        b_type = st.selectbox("İşlem Tipi", ["❌ İzinli (Nöbet Yok)", "🔴 24 Saat Nöbet", "🟢 16 Saat Nöbet", "🗑️ Temizle"])
+    
+    with c_bulk2:
+        st.write("Günleri Seçin:")
+        days_opts = [str(i) for i in range(1, num_days+1)]
+        b_days = st.multiselect("Günler", days_opts, label_visibility="collapsed")
+    
+    with c_bulk3:
+        st.write("")
+        st.write("")
+        if st.button("Uygula ⚡", type="primary", use_container_width=True):
+            if b_days:
+                val_map = {"❌ İzinli (Nöbet Yok)": "X", "🔴 24 Saat Nöbet": "24", "🟢 16 Saat Nöbet": "16", "🗑️ Temizle": ""}
+                val = val_map[b_type]
+                for d_str in b_days:
+                    d = int(d_str)
+                    key = f"{b_doc}_{d}"
+                    if val:
+                        st.session_state.manual_constraints[key] = val
+                        # 24h ise otomatik yasak koy
+                        if val == "24":
+                            for off in range(1, rest_days_24h+1):
+                                if d+off <= num_days: st.session_state.manual_constraints[f"{b_doc}_{d+off}"] = "⛔"
+                    else:
+                        if key in st.session_state.manual_constraints: del st.session_state.manual_constraints[key]
+                st.success("İşlem Tamam!")
+                st.session_state.editor_key += 1
+                st.rerun()
 
     st.markdown("---")
-    st.markdown("#### 📋 Detaylı Tablo Görünümü")
     
-    c_data = []
-    for doc in st.session_state.doctors:
-        r = {"Doktor": doc}
-        for d in range(1, num_days+1): 
-            r[str(d)] = st.session_state.manual_constraints.get(f"{doc}_{d}", "")
-        c_data.append(r)
+    # Detaylı Tablo
+    with st.expander("📋 Detaylı Kısıt Tablosunu Göster"):
+        grid_data = []
+        for doc in st.session_state.doctors:
+            row = {"Doktor": doc}
+            for d in range(1, num_days+1):
+                row[str(d)] = st.session_state.manual_constraints.get(f"{doc}_{d}", "")
+            grid_data.append(row)
         
-    col_cfg = {"Doktor": st.column_config.TextColumn(disabled=True)}
-    for d in range(1, num_days+1):
-        dn = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][datetime(st.session_state.year, st.session_state.month, d).weekday()]
-        col_cfg[str(d)] = st.column_config.SelectboxColumn(label=f"{d}\n{dn}", options=["", "24", "16", "X", "⛔"], width="small")
-        
-    with st.form("const_manual"):
-        ed_cons = st.data_editor(pd.DataFrame(c_data), height=600, column_config=col_cfg, hide_index=True, use_container_width=True, key=f"cons_ed_{st.session_state.editor_key}")
-        if st.form_submit_button("💾 Tablodan Kaydet"):
-            updated = False
-            for i, r in ed_cons.iterrows():
-                doc = r["Doktor"]
-                for d in range(1, num_days+1):
-                    val = str(r[str(d)])
-                    k = f"{doc}_{d}"
-                    if val != st.session_state.manual_constraints.get(k, ""):
-                        if val in ["24", "16", "X", "⛔"]:
-                            st.session_state.manual_constraints[k] = val
-                            if val == "24":
-                                for off in range(1, rest_days_24h+1):
-                                    if d+off <= num_days: st.session_state.manual_constraints[f"{doc}_{d+off}"] = "⛔"
-                        else:
-                            if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
-                        updated = True
-            if updated: st.session_state.editor_key += 1; st.rerun()
+        cfg = {"Doktor": st.column_config.TextColumn(disabled=True)}
+        for d in range(1, num_days+1):
+            cfg[str(d)] = st.column_config.SelectboxColumn(width="small", options=["", "24", "16", "X", "⛔"])
+            
+        with st.form("manual_grid"):
+            ed_grid = st.data_editor(pd.DataFrame(grid_data), column_config=cfg, hide_index=True, key=f"grid_{st.session_state.editor_key}")
+            if st.form_submit_button("Tabloyu Kaydet"):
+                # Basit güncelleme mantığı (burası daha optimize edilebilir)
+                for _, r in ed_grid.iterrows():
+                    dc = r["Doktor"]
+                    for d in range(1, num_days+1):
+                        v = r[str(d)]
+                        k = f"{dc}_{d}"
+                        if v: st.session_state.manual_constraints[k] = v
+                        elif k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
+                st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 4: HESAPLAMA (ZAMAN SINIRI EKLİ)
-with t4:
+# --- TAB 4: HESAPLAMA ---
+with tab_run:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    calc_time = st.slider("Maksimum Hesaplama Süresi (Saniye)", 10, 60, 30, help="AI çok zorlanırsa bu süre sonunda bulduğu en iyi sonucu verir.")
+    st.markdown("#### 🚀 Yapay Zeka Motoru")
+    
+    col_act1, col_act2 = st.columns([3, 1])
+    with col_act1:
+        st.info("Kıdem dengesi, kotalar ve yasaklar dikkate alınarak en iyi program oluşturulacak.")
+    with col_act2:
+        run_btn = st.button("Çizelgeyi Oluştur", type="primary", use_container_width=True)
+        
+    if run_btn:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        status_text.text("Veriler hazırlanıyor...")
+        progress_bar.progress(10)
+        time.sleep(0.5)
+        
+        # --- OR-TOOLS MODELİ ---
+        model = cp_model.CpModel()
+        docs = st.session_state.doctors
+        days = range(1, num_days+1)
+        x24, x16 = {}, {}
+        
+        seniors = [d for d in docs if st.session_state.seniority.get(d) == "Kıdemli"]
+        mids = [d for d in docs if st.session_state.seniority.get(d) == "Orta"]
+        juniors = [d for d in docs if st.session_state.seniority.get(d) == "Çömez"]
+        
+        status_text.text("Değişkenler oluşturuluyor...")
+        progress_bar.progress(30)
 
-    if st.button("🚀 Nöbetleri Dağıt (AI)", type="primary", use_container_width=True):
-        with st.spinner("Kıdem dengesi ve kurallar hesaplanıyor... Lütfen bekleyin..."):
-            model = cp_model.CpModel()
-            docs = st.session_state.doctors
-            days = range(1, num_days+1)
-            x24, x16 = {}, {}
-
-            seniors = [d for d in docs if st.session_state.seniority.get(d, "Orta") == "Kıdemli"]
-            mids = [d for d in docs if st.session_state.seniority.get(d, "Orta") == "Orta"]
-            juniors = [d for d in docs if st.session_state.seniority.get(d, "Orta") == "Çömez"]
-
-            for d in docs:
-                for t in days:
-                    x24[(d,t)] = model.NewBoolVar(f'x24_{d}_{t}')
-                    x16[(d,t)] = model.NewBoolVar(f'x16_{d}_{t}')
-                    model.Add(x24[(d,t)] + x16[(d,t)] <= 1)
-
+        # Değişkenler
+        for d in docs:
             for t in days:
-                need24 = st.session_state.daily_needs_24h.get(t, 1)
-                need16 = st.session_state.daily_needs_16h.get(t, 1)
-                model.Add(sum(x24[(d,t)] for d in docs) == need24)
-                model.Add(sum(x16[(d,t)] for d in docs) == need16)
+                x24[(d,t)] = model.NewBoolVar(f'x24_{d}_{t}')
+                x16[(d,t)] = model.NewBoolVar(f'x16_{d}_{t}')
+                model.Add(x24[(d,t)] + x16[(d,t)] <= 1)
 
-            for d in docs:
-                for t in range(1, num_days):
-                    model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
+        # İhtiyaçlar
+        for t in days:
+            model.Add(sum(x24[(d,t)] for d in docs) == st.session_state.daily_needs_24h.get(t, 1))
+            model.Add(sum(x16[(d,t)] for d in docs) == st.session_state.daily_needs_16h.get(t, 1))
+            
+        # Yasaklar & Dinlenme
+        for d in docs:
+            # Peş peşe gelmeme
+            for t in range(1, num_days):
+                model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
+            
+            # 24h sonrası izin
+            win = rest_days_24h + 1
+            for i in range(len(days) - win + 1):
+                wd = [days[j] for j in range(i, i+win)]
+                model.Add(sum(x24[(d,k)] for k in wd) <= 1)
                 
-                win = rest_days_24h + 1
-                for i in range(len(days) - win + 1):
-                    wd = [days[j] for j in range(i, i+win)]
-                    model.Add(sum(x24[(d,k)] for k in wd) <= 1)
+            # Manuel Kısıtlar
+            for t in days:
+                c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
+                if c == "24": model.Add(x24[(d,t)] == 1)
+                elif c == "16": model.Add(x16[(d,t)] == 1)
+                elif c == "X" or c == "⛔": 
+                    model.Add(x24[(d,t)] == 0)
+                    model.Add(x16[(d,t)] == 0)
 
-            for d in docs:
-                for t in days:
-                    c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
-                    if c == "24": model.Add(x24[(d,t)] == 1)
-                    elif c == "16": model.Add(x16[(d,t)] == 1)
-                    elif c == "X": 
-                        model.Add(x24[(d,t)] == 0)
-                        model.Add(x16[(d,t)] == 0)
-
-            penalties = []
-            for d in docs:
-                tot24 = sum(x24[(d,t)] for t in days)
-                tgt24 = st.session_state.quotas_24h.get(d, 0)
-                tot16 = sum(x16[(d,t)] for t in days)
-                tgt16 = st.session_state.quotas_16h.get(d, 0)
-
-                if "Katı" in solver_mode:
-                    model.Add(tot24 <= tgt24)
-                    model.Add(tot16 <= tgt16)
-                else:
-                    diff24 = model.NewIntVar(0, 31, f'd24_{d}')
-                    model.Add(diff24 >= tgt24 - tot24)
-                    model.Add(diff24 >= tot24 - tgt24)
-                    penalties.append(diff24 * 50)
-
-                    diff16 = model.NewIntVar(0, 31, f'd16_{d}')
-                    model.Add(diff16 >= tgt16 - tot16)
-                    model.Add(diff16 >= tot16 - tgt16)
-                    penalties.append(diff16 * 50)
-
-            if "Esnek" in solver_mode:
-                for t in days:
-                    c_s = sum(x24[(d,t)] for d in seniors)
-                    c_m = sum(x24[(d,t)] for d in mids)
-                    c_j = sum(x24[(d,t)] for d in juniors)
-
-                    if seniors and mids:
-                        d_sm = model.NewIntVar(0, 10, f'd_sm_{t}')
-                        model.Add(d_sm >= c_s - c_m)
-                        model.Add(d_sm >= c_m - c_s)
-                        penalties.append(d_sm * 5)
-
-                    if mids and juniors:
-                        d_mj = model.NewIntVar(0, 10, f'd_mj_{t}')
-                        model.Add(d_mj >= c_m - c_j)
-                        model.Add(d_mj >= c_j - c_m)
-                        penalties.append(d_mj * 5)
-                    
-                    if seniors and juniors:
-                        d_sj = model.NewIntVar(0, 10, f'd_sj_{t}')
-                        model.Add(d_sj >= c_s - c_j)
-                        model.Add(d_sj >= c_j - c_s)
-                        penalties.append(d_sj * 5)
-
-            if "Esnek" in solver_mode: model.Minimize(sum(penalties))
-
-            solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = float(calc_time) 
-            status = solver.Solve(model)
-
-            if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-                st.success(f"✅ Çizelge Hazır! (Durum: {solver.StatusName(status)})")
-                
-                res_mx, res_lst = [], []
-                stats = {d: {"24h":0, "16h":0} for d in docs}
-                
-                for t in days:
-                    dt = datetime(st.session_state.year, st.session_state.month, t)
-                    dstr = f"{t:02d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dt.weekday()]}"
-                    rm = {"Tarih": dstr}
-                    l24, l16 = [], []
-                    daily_s, daily_m, daily_j = 0, 0, 0
-                    
-                    for d in docs:
-                        is_24 = solver.Value(x24[(d,t)])
-                        is_16 = solver.Value(x16[(d,t)])
-                        if is_24: 
-                            rm[d]="24h"; l24.append(d); stats[d]["24h"]+=1
-                            kdm = st.session_state.seniority.get(d, "Orta")
-                            if kdm=="Kıdemli": daily_s+=1
-                            elif kdm=="Orta": daily_m+=1
-                            elif kdm=="Çömez": daily_j+=1
-                        elif is_16: 
-                            rm[d]="16h"; l16.append(d); stats[d]["16h"]+=1
-                        else: rm[d]=""
-                    
-                    res_mx.append(rm)
-                    res_lst.append({
-                        "Tarih": dstr, 
-                        "24 Saat": ", ".join(l24), 
-                        "16 Saat": ", ".join(l16),
-                        "Dağılım (K-O-Ç)": f"{daily_s}-{daily_m}-{daily_j}"
-                    })
-                
-                stat_data = []
-                for d in docs:
-                    t24 = st.session_state.quotas_24h.get(d, 0)
-                    t16 = st.session_state.quotas_16h.get(d, 0)
-                    stat_data.append({
-                        "Doktor": d,
-                        "Kıdem": st.session_state.seniority.get(d, "Orta"),
-                        "24h (Hedef)": t24, "24h (Gerçek)": stats[d]["24h"],
-                        "16h (Hedef)": t16, "16h (Gerçek)": stats[d]["16h"],
-                        "Durum": "✅" if stats[d]["24h"]==t24 else "⚠️"
-                    })
-                
-                df_mx = pd.DataFrame(res_mx)
-                df_ls = pd.DataFrame(res_lst)
-                df_st = pd.DataFrame(stat_data)
-                
-                st.dataframe(df_st, use_container_width=True)
-                vt1, vt2 = st.tabs(["Renkli Genel Tablo", "Günlük Liste ve Dağılım"])
-                with vt1: st.dataframe(df_mx.style.applymap(lambda v: 'background-color: #ef4444; color: white' if v=='24h' else ('background-color: #22c55e; color: white' if v=='16h' else '')), use_container_width=True)
-                with vt2: st.dataframe(df_ls, use_container_width=True)
-                
-                buf = io.BytesIO()
-                with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
-                    df_ls.to_excel(writer, sheet_name='Liste', index=False)
-                    df_mx.to_excel(writer, sheet_name='Cizelge', index=False)
-                    df_st.to_excel(writer, sheet_name='Istatistik', index=False)
-                st.download_button("📥 Excel Olarak İndir", buf.getvalue(), "nobet_cizelgesi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        status_text.text("Hedef fonksiyonları ve cezalar ekleniyor...")
+        progress_bar.progress(50)
+        
+        # Amaç Fonksiyonu
+        penalties = []
+        for d in docs:
+            # 24h Kota Sapması
+            t24 = sum(x24[(d,t)] for t in days)
+            goal24 = st.session_state.quotas_24h.get(d, 0)
+            if "Katı" in solver_mode: model.Add(t24 <= goal24)
             else:
-                st.error("⚠️ Çözüm Bulunamadı veya Zaman Yetmedi!")
+                diff = model.NewIntVar(0, 31, f'd24_{d}')
+                model.Add(diff >= t24 - goal24)
+                model.Add(diff >= goal24 - t24)
+                penalties.append(diff * 50)
+            
+            # 16h Kota Sapması
+            t16 = sum(x16[(d,t)] for t in days)
+            goal16 = st.session_state.quotas_16h.get(d, 0)
+            if "Katı" in solver_mode: model.Add(t16 <= goal16)
+            else:
+                diff = model.NewIntVar(0, 31, f'd16_{d}')
+                model.Add(diff >= t16 - goal16)
+                model.Add(diff >= goal16 - t16)
+                penalties.append(diff * 50)
+
+        # Kıdem Dengesi (Soft Constraint)
+        if "Esnek" in solver_mode:
+            for t in days:
+                cnt_s = sum(x24[(d,t)] for d in seniors)
+                cnt_m = sum(x24[(d,t)] for d in mids)
+                cnt_j = sum(x24[(d,t)] for d in juniors)
+                
+                # S-M Dengesi
+                if seniors and mids:
+                    d1 = model.NewIntVar(0, 10, f'sm_{t}')
+                    model.Add(d1 >= cnt_s - cnt_m)
+                    model.Add(d1 >= cnt_m - cnt_s)
+                    penalties.append(d1 * 5)
+                # M-J Dengesi
+                if mids and juniors:
+                    d2 = model.NewIntVar(0, 10, f'mj_{t}')
+                    model.Add(d2 >= cnt_m - cnt_j)
+                    model.Add(d2 >= cnt_j - cnt_m)
+                    penalties.append(d2 * 5)
+                # S-J Dengesi
+                if seniors and juniors:
+                    d3 = model.NewIntVar(0, 10, f'sj_{t}')
+                    model.Add(d3 >= cnt_s - cnt_j)
+                    model.Add(d3 >= cnt_j - cnt_s)
+                    penalties.append(d3 * 5)
+            
+            model.Minimize(sum(penalties))
+
+        status_text.text("AI optimum çözümü arıyor...")
+        progress_bar.progress(70)
+        
+        solver = cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds = float(calc_time)
+        status = solver.Solve(model)
+        
+        progress_bar.progress(100)
+        status_text.empty()
+
+        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
+            st.success(f"✅ Çözüm Bulundu! ({solver.StatusName(status)})")
+            
+            # --- SONUÇLARI İŞLEME ---
+            res_list = []
+            res_grid = []
+            stats = {d: {"24":0, "16":0} for d in docs}
+            
+            for t in days:
+                dt = datetime(st.session_state.year, st.session_state.month, t)
+                t_str = f"{t:02d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dt.weekday()]}"
+                
+                row_g = {"Tarih": t_str}
+                l24, l16 = [], []
+                cnt_s, cnt_m, cnt_j = 0, 0, 0
+                
+                for d in docs:
+                    val = ""
+                    if solver.Value(x24[(d,t)]):
+                        val = "24h"
+                        l24.append(d)
+                        stats[d]["24"] += 1
+                        # Kıdem sayacı
+                        kdm = st.session_state.seniority.get(d)
+                        if kdm == "Kıdemli": cnt_s += 1
+                        elif kdm == "Çömez": cnt_j += 1
+                        else: cnt_m += 1
+                    elif solver.Value(x16[(d,t)]):
+                        val = "16h"
+                        l16.append(d)
+                        stats[d]["16"] += 1
+                    row_g[d] = val
+                
+                res_grid.append(row_g)
+                res_list.append({
+                    "Tarih": t_str,
+                    "🔴 24 Saat Ekibi": ", ".join(l24),
+                    "🟢 16 Saat Ekibi": ", ".join(l16),
+                    "Ekip Dengesi (K-O-Ç)": f"{cnt_s} - {cnt_m} - {cnt_j}"
+                })
+            
+            # --- İSTATİSTİK TABLOSU ---
+            stat_rows = []
+            for d in docs:
+                h24 = st.session_state.quotas_24h.get(d, 0)
+                g24 = stats[d]["24"]
+                h16 = st.session_state.quotas_16h.get(d, 0)
+                g16 = stats[d]["16"]
+                
+                durum = "✅ Tam"
+                if g24 != h24: durum = f"⚠️ {g24-h24:+d}"
+                
+                stat_rows.append({
+                    "Doktor": d,
+                    "Kıdem": st.session_state.seniority.get(d),
+                    "24h (Hedef/Gerçek)": f"{h24} / {g24}",
+                    "16h (Hedef/Gerçek)": f"{h16} / {g16}",
+                    "Sapma Durumu": durum
+                })
+            
+            # --- SONUÇ GÖSTERİMİ ---
+            df_list = pd.DataFrame(res_list)
+            df_grid = pd.DataFrame(res_grid)
+            df_stat = pd.DataFrame(stat_rows)
+            
+            st.markdown("#### 📊 Dağılım İstatistikleri")
+            st.dataframe(df_stat, use_container_width=True)
+            
+            st.markdown("#### 📅 Günlük Nöbet Listesi")
+            st.dataframe(df_list, use_container_width=True)
+            
+            st.markdown("#### 🌈 Renkli Genel Çizelge")
+            # Renklendirme Fonksiyonu
+            def color_map(val):
+                if val == "24h": return 'background-color: #ef4444; color: white; font-weight: bold'
+                elif val == "16h": return 'background-color: #22c55e; color: white; font-weight: bold'
+                return ''
+            
+            st.dataframe(df_grid.style.applymap(color_map), use_container_width=True)
+            
+            # Excel İndirme
+            buf = io.BytesIO()
+            with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+                df_list.to_excel(writer, sheet_name='Liste', index=False)
+                df_grid.to_excel(writer, sheet_name='Cizelge', index=False)
+                df_stat.to_excel(writer, sheet_name='Istatistik', index=False)
+                
+                # Excel Formatlama (Opsiyonel)
+                wb = writer.book
+                ws = writer.sheets['Cizelge']
+                fmt_red = wb.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+                ws.conditional_format(1, 1, num_days, len(docs), {'type': 'text', 'criteria': 'containing', 'value': '24h', 'format': fmt_red})
+                
+            st.download_button("📥 Excel Raporunu İndir", buf.getvalue(), "Nobet_Plani_Final.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+
+        else:
+            st.error("⚠️ Çözüm bulunamadı! Kısıtlar çok sıkı olabilir veya süre yetmemiş olabilir.")
+            st.warning("Öneri: Süreyi artırın veya 'Esnek Mod' kullanın.")
+
     st.markdown('</div>', unsafe_allow_html=True)
