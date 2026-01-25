@@ -22,7 +22,7 @@ st.markdown("""
     h1, h2, h3, h4, h5, h6, p, span, div, label { color: #e2e8f0 !important; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; border-right: 1px solid #334155; }
     
-    /* Kart Yapısı ve Genişletme */
+    /* Kart Yapısı */
     .css-card { 
         background-color: #1e293b !important; 
         padding: 25px; 
@@ -62,12 +62,12 @@ st.markdown("""
         background-color: #1e293b; 
         border-radius: 10px;
         border: 1px solid #334155;
-        min-height: 500px !important; /* Tablo yüksekliğini artırdık */
+        min-height: 500px !important; 
     }
     div[data-testid="stDataEditor"] * {
         color: #e2e8f0 !important;
         background-color: #1e293b !important;
-        font-size: 1.05rem !important; /* Yazıları biraz büyüttük */
+        font-size: 1.05rem !important; 
     }
     
     .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; }
@@ -103,13 +103,11 @@ def load_month_data(y, m):
     else:
         st.session_state.daily_needs_24h = {}
         st.session_state.daily_needs_16h = {}
-        # Eğer veri yoksa varsayılan ekipten kotaları çek
         st.session_state.quotas_24h = {k["isim"]: k["kota24"] for k in VARSAYILAN_EKIP}
         st.session_state.quotas_16h = {k["isim"]: k["kota16"] for k in VARSAYILAN_EKIP}
         st.session_state.manual_constraints = {}
 
 # --- BAŞLANGIÇ VE KADRO AYARLARI ---
-# Excel'den alınan ve son revize edilen sabit liste
 VARSAYILAN_EKIP = [
     # 1. GRUP (Sadece 24h: 8, 16h: 0)
     {"isim": "A01", "kota24": 8, "kota16": 0},
@@ -129,7 +127,7 @@ VARSAYILAN_EKIP = [
     {"isim": "A15", "kota24": 8, "kota16": 0},
     {"isim": "A16", "kota24": 8, "kota16": 0},
 
-    # 2. GRUP (24h: 8, 16h: 1) -> GÜNCELLENEN KISIM
+    # 2. GRUP (24h: 8, 16h: 1)
     {"isim": "A17", "kota24": 8, "kota16": 1},
     {"isim": "A18", "kota24": 8, "kota16": 1},
     {"isim": "A19", "kota24": 8, "kota16": 1},
@@ -152,24 +150,19 @@ VARSAYILAN_EKIP = [
 ]
 
 if 'doctors' not in st.session_state: 
-    # Listeden isimleri al
     st.session_state.doctors = [kisi["isim"] for kisi in VARSAYILAN_EKIP]
 
 if 'year' not in st.session_state: st.session_state.year = datetime.now().year
 if 'month' not in st.session_state: st.session_state.month = datetime.now().month
 if 'db' not in st.session_state: st.session_state.db = {}
 if 'editor_key' not in st.session_state: st.session_state.editor_key = 0
-
 if 'daily_needs_24h' not in st.session_state: st.session_state.daily_needs_24h = {}
 if 'daily_needs_16h' not in st.session_state: st.session_state.daily_needs_16h = {}
 
-# Kotaları varsayılan ekipten çek ve session_state'e yükle
 if 'quotas_24h' not in st.session_state: 
     st.session_state.quotas_24h = {kisi["isim"]: kisi["kota24"] for kisi in VARSAYILAN_EKIP}
-
 if 'quotas_16h' not in st.session_state: 
     st.session_state.quotas_16h = {kisi["isim"]: kisi["kota16"] for kisi in VARSAYILAN_EKIP}
-
 if 'manual_constraints' not in st.session_state: st.session_state.manual_constraints = {}
 
 # --- SIDEBAR ---
@@ -192,7 +185,10 @@ with st.sidebar:
     num_days = calendar.monthrange(selected_year, selected_month)[1]
     st.markdown("---")
     st.subheader("⚙️ Kurallar")
+    # Kullanıcıyı yönlendiriyoruz
+    st.info("💡 16h nöbetini 24h'den sonraki 2. güne koymak için burayı '1' veya '2' olarak ayarlayın.")
     rest_days_24h = st.slider("24h Sonrası Yasaklı Gün", 1, 5, 2)
+    
     st.markdown("---")
     st.subheader("🎛️ AI Stratejisi")
     solver_mode = st.radio("Mod:", ["Katı Kurallar (Tam Uyum)", "Esnek Mod (Tavan Sınır)"], index=1)
@@ -215,9 +211,9 @@ with st.sidebar:
             save_current_month_data()
             d_out = {
                 "doctors": st.session_state.doctors,
-                "quotas_24h": st.session_state.quotas_24h, # Kotaları da ekledik
-                "quotas_16h": st.session_state.quotas_16h, # Kotaları da ekledik
-                "manual_constraints": st.session_state.manual_constraints, # Kısıtları ekledik
+                "quotas_24h": st.session_state.quotas_24h,
+                "quotas_16h": st.session_state.quotas_16h,
+                "manual_constraints": st.session_state.manual_constraints,
                 "db": {str(k): v for k, v in st.session_state.db.items()},
                 "current_year": st.session_state.year,
                 "current_month": st.session_state.month
@@ -229,18 +225,13 @@ with st.sidebar:
             try:
                 data = json.load(upl)
                 st.session_state.doctors = data.get('doctors', st.session_state.doctors)
-                
-                # Kotaları ve Kısıtları Geri Yükle
                 if 'quotas_24h' in data: st.session_state.quotas_24h = data['quotas_24h']
                 if 'quotas_16h' in data: st.session_state.quotas_16h = data['quotas_16h']
                 if 'manual_constraints' in data: st.session_state.manual_constraints = data['manual_constraints']
-                
                 if 'db' in data: st.session_state.db = data['db']
-                
-                st.success("✅ Tüm veriler (İsimler, Kotalar, Kısıtlar) yüklendi!")
+                st.success("✅ Veriler yüklendi!")
                 st.rerun()
-            except Exception as e: 
-                st.error(f"Hata: {e}")
+            except Exception as e: st.error(f"Hata: {e}")
 
 # --- DASHBOARD ---
 st.markdown(f"### 🗓️ {calendar.month_name[st.session_state.month]} {st.session_state.year} Dashboard")
@@ -253,22 +244,18 @@ c4.metric("Kısıtlar", len(st.session_state.manual_constraints))
 
 st.write("") 
 
-t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR (LİMİT)", "🔒 KISITLAR (X)", "🚀 SONUÇ & RAPOR"])
+t1, t2, t3, t4 = st.tabs(["📋 GÜNLÜK İHTİYAÇ", "🎯 KOTALAR (LİMİT)", "🔒 KISITLAR (HIZLI GİRİŞ)", "🚀 SONUÇ & RAPOR"])
 
 # TAB 1: GÜNLÜK İHTİYAÇ
 with t1:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 📅 Günlük Nöbetçi İhtiyacı")
-    # Varsayılan değerler
     for d in range(1, num_days+1):
         if d not in st.session_state.daily_needs_24h: st.session_state.daily_needs_24h[d] = 1
         if d not in st.session_state.daily_needs_16h: st.session_state.daily_needs_16h[d] = 1
 
-    # Tablo
     d_data = [{"Gün": d, "Tarih": f"{d} {['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][datetime(st.session_state.year, st.session_state.month, d).weekday()]}", "24h": st.session_state.daily_needs_24h.get(d, 1), "16h": st.session_state.daily_needs_16h.get(d, 1)} for d in range(1, num_days+1)]
-    
     with st.form("needs_manual"):
-        # height=500 ile tabloyu büyüttük
         edf = st.data_editor(pd.DataFrame(d_data), height=500, key=f"need_ed_{st.session_state.editor_key}", use_container_width=True, hide_index=True, column_config={"Gün": st.column_config.NumberColumn(disabled=True), "Tarih": st.column_config.TextColumn(disabled=True)})
         if st.form_submit_button("💾 Tablodan Kaydet"):
             for i, r in edf.iterrows():
@@ -282,7 +269,6 @@ with t1:
 with t2:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 🎯 Doktor Nöbet Hedefleri")
-    
     total_need_24 = sum(st.session_state.daily_needs_24h.get(d, 1) for d in range(1, num_days+1))
     total_need_16 = sum(st.session_state.daily_needs_16h.get(d, 1) for d in range(1, num_days+1))
     current_dist_24 = sum(st.session_state.quotas_24h.get(d, 0) for d in st.session_state.doctors)
@@ -292,10 +278,8 @@ with t2:
     col_q1.metric("24h İhtiyaç / Dağıtılan", f"{total_need_24} / {current_dist_24}", delta=f"{current_dist_24 - total_need_24}", delta_color="off")
     col_q2.metric("16h İhtiyaç / Dağıtılan", f"{total_need_16} / {current_dist_16}", delta=f"{current_dist_16 - total_need_16}", delta_color="off")
     
-    # Tablo
     q_data = [{"Dr": d, "Max 24h": st.session_state.quotas_24h.get(d, 0), "Max 16h": st.session_state.quotas_16h.get(d, 0)} for d in st.session_state.doctors]
     with st.form("quotas_manual"):
-        # height=500 ile tabloyu büyüttük
         qdf = st.data_editor(pd.DataFrame(q_data), height=500, key=f"quota_ed_{st.session_state.editor_key}", use_container_width=True, hide_index=True, column_config={"Dr": st.column_config.TextColumn(disabled=True)})
         if st.form_submit_button("💾 Tablodan Kaydet"):
             for i, r in qdf.iterrows():
@@ -305,27 +289,86 @@ with t2:
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# TAB 3: MANUEL KISITLAR
+# TAB 3: MANUEL KISITLAR (HIZLI GİRİŞ VE GÖRSEL UYARI)
 with t3:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
-    st.markdown("#### 🔒 Mazeret ve Sabit Nöbetler")
-    st.info(f"💡 Hücreye '24', '16' veya 'X' (Mazeret) yazın. '24' yazarsanız sonraki **{rest_days_24h} gün** otomatik bloklanır.")
     
-    # Tablo
+    # --- YENİ BÖLÜM: TOPLU GİRİŞ ARACI ---
+    with st.expander("⚡ Hızlı & Toplu Veri Girişi (Burası Çok Hızlı!)", expanded=True):
+        st.info("Tek tek uğraşma! Doktoru seç, günleri işaretle ve tek tıkla ata.")
+        c_b1, c_b2, c_b3 = st.columns([1, 2, 1])
+        
+        with c_b1:
+            bulk_doc = st.selectbox("1. Doktor Seç:", st.session_state.doctors)
+            bulk_type = st.selectbox("2. Ne Atanacak?", ["🔴 24 (Nöbet)", "🟢 16 (Nöbet)", "❌ Mazeret (Boşalt)", "🗑️ Temizle (Sil)"])
+        
+        with c_b2:
+            st.write("3. Günleri Seç:")
+            # Multi-select ile günleri seçtirme
+            days_labels = [f"{d}" for d in range(1, num_days+1)]
+            selected_days = st.multiselect("Günler", days_labels, label_visibility="collapsed")
+        
+        with c_b3:
+            st.write("")
+            st.write("")
+            if st.button("⚡ Uygula", type="primary", use_container_width=True):
+                if bulk_doc and selected_days:
+                    val_map = {"🔴 24 (Nöbet)": "24", "🟢 16 (Nöbet)": "16", "❌ Mazeret (Boşalt)": "X", "🗑️ Temizle (Sil)": ""}
+                    val = val_map[bulk_type]
+                    
+                    for day_str in selected_days:
+                        d = int(day_str)
+                        k = f"{bulk_doc}_{d}"
+                        if val:
+                            st.session_state.manual_constraints[k] = val
+                            # Otomatik bloklama (Sadece 24 ise) - Görsel olarak ekler
+                            if val == "24":
+                                for off in range(1, rest_days_24h+1):
+                                    if d+off <= num_days:
+                                        # Eğer orada başka bir kısıt yoksa visual block koy
+                                        if f"{bulk_doc}_{d+off}" not in st.session_state.manual_constraints:
+                                            st.session_state.manual_constraints[f"{bulk_doc}_{d+off}"] = "⛔"
+                        else:
+                            # Temizleme
+                            if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
+                    
+                    st.success(f"{len(selected_days)} güne işlem uygulandı!")
+                    st.session_state.editor_key += 1
+                    st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### 📋 Detaylı Tablo Görünümü")
+    st.caption("Not: '⛔' işareti sizin dikkatinizi çekmek içindir. **AI hesaplama yaparken bu işareti görmezden gelir.** Böylece kurallar izin veriyorsa (örn: 1 gün boşluk varsa) o güne 16h nöbet yazabilir.")
+
+    # Tablo Verisi Hazırlama
     c_data = []
     for doc in st.session_state.doctors:
         r = {"Doktor": doc}
-        for d in range(1, num_days+1): r[str(d)] = st.session_state.manual_constraints.get(f"{doc}_{d}", "")
+        for d in range(1, num_days+1): 
+            # Veride ne varsa onu çekiyoruz
+            r[str(d)] = st.session_state.manual_constraints.get(f"{doc}_{d}", "")
         c_data.append(r)
         
     col_cfg = {"Doktor": st.column_config.TextColumn(disabled=True)}
     for d in range(1, num_days+1):
         dn = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][datetime(st.session_state.year, st.session_state.month, d).weekday()]
-        col_cfg[str(d)] = st.column_config.SelectboxColumn(label=f"{d} {dn}", options=["", "24", "16", "X"], width="small")
+        # Emoji Destekli Dropdown
+        col_cfg[str(d)] = st.column_config.SelectboxColumn(
+            label=f"{d}\n{dn}", 
+            options=["", "24", "16", "X", "⛔"], 
+            width="small"
+        )
         
     with st.form("const_manual"):
-        # height=600 ile bu tabloyu daha da büyüttük çünkü geniş
-        ed_cons = st.data_editor(pd.DataFrame(c_data), height=600, column_config=col_cfg, hide_index=True, use_container_width=True, key=f"cons_ed_{st.session_state.editor_key}")
+        ed_cons = st.data_editor(
+            pd.DataFrame(c_data), 
+            height=600, 
+            column_config=col_cfg, 
+            hide_index=True, 
+            use_container_width=True, 
+            key=f"cons_ed_{st.session_state.editor_key}"
+        )
+        
         if st.form_submit_button("💾 Tablodan Kaydet"):
             updated = False
             for i, r in ed_cons.iterrows():
@@ -333,17 +376,26 @@ with t3:
                 for d in range(1, num_days+1):
                     val = str(r[str(d)])
                     k = f"{doc}_{d}"
+                    
+                    # Mevcut değerden farklıysa güncelle
                     if val != st.session_state.manual_constraints.get(k, ""):
-                        if val in ["24", "16", "X"]:
+                        if val in ["24", "16", "X", "⛔"]:
                             st.session_state.manual_constraints[k] = val
+                            
+                            # OTOMATİK BLOKLAMA MANTIĞI (Görsel)
                             if val == "24":
                                 for off in range(1, rest_days_24h+1):
-                                    if d+off <= num_days: st.session_state.manual_constraints[f"{doc}_{d+off}"] = "X"
+                                    if d+off <= num_days: 
+                                        st.session_state.manual_constraints[f"{doc}_{d+off}"] = "⛔"
                         else:
                             if k in st.session_state.manual_constraints: del st.session_state.manual_constraints[k]
                         updated = True
-            if updated: st.rerun()
-            else: st.success("Değişiklik yok.")
+            
+            if updated: 
+                st.session_state.editor_key += 1 # Force refresh
+                st.rerun()
+            else: 
+                st.success("Değişiklik yok.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # TAB 4: HESAPLAMA
@@ -370,20 +422,30 @@ with t4:
 
             for d in docs:
                 for t in range(1, num_days):
+                    # Bir gün nöbet tutan ertesi gün tutamaz (Standart yorgunluk kuralı)
                     model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
+                
+                # 24 Saatlik Nöbet Sonrası Dinlenme Kuralı (Slider'a göre)
                 win = rest_days_24h + 1
                 for i in range(len(days) - win + 1):
                     wd = [days[j] for j in range(i, i+win)]
+                    # Bu aralıkta en fazla bir tane 24 saatlik nöbet olabilir.
+                    # ÖNEMLİ: Bu kural 16 saatlik nöbetleri engellemez, sadece sık 24 nöbetini engeller.
                     model.Add(sum(x24[(d,k)] for k in wd) <= 1)
 
             for d in docs:
                 for t in days:
+                    # Constraint kontrolü (Genişletilmiş)
                     c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
                     if c == "24": model.Add(x24[(d,t)] == 1)
                     elif c == "16": model.Add(x16[(d,t)] == 1)
-                    elif c == "X": 
+                    elif c == "X": # X Kesinlikle Yasak
                         model.Add(x24[(d,t)] == 0)
                         model.Add(x16[(d,t)] == 0)
+                    elif c == "⛔": 
+                        # ÖNEMLİ DEĞİŞİKLİK: '⛔' işaretini AI görmezden geliyor.
+                        # Sadece görsel uyarıdır. Matematiksel kısıt eklemiyoruz (pass).
+                        pass
 
             deviations = []
             for d in docs:
