@@ -8,13 +8,6 @@ import io
 import xlsxwriter
 import time
 
-# openpyxl kontrolü (Excel okuma için gerekli)
-try:
-    import openpyxl
-    OPENPYXL_INSTALLED = True
-except ImportError:
-    OPENPYXL_INSTALLED = False
-
 # -----------------------------------------------------------------------------
 # 1. AYARLAR VE SAYFA YAPILANDIRMASI
 # -----------------------------------------------------------------------------
@@ -263,48 +256,42 @@ with st.sidebar:
     with st.expander("📂 Excel ile Veri Yükle", expanded=False):
         st.caption("Matris yapılı Excel yükleyerek tüm verileri otomatik doldurun.")
         
-        # openpyxl kontrolü
-        if not OPENPYXL_INSTALLED:
-            st.error("⚠️ Excel okuma için 'openpyxl' kütüphanesi gerekli!")
-            st.code("pip install openpyxl", language="bash")
-            st.info("Yukarıdaki komutu çalıştırıp uygulamayı yeniden başlatın.")
-        else:
-            # Şablon İndirme Butonu
-            st.download_button(
-                label="📥 Örnek Şablonu İndir",
-                data=create_excel_template(),
-                file_name=f"Nobetinator_Sablon_{st.session_state.year}_{st.session_state.month}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-            
-            st.markdown("---")
-            
-            # Dosya Yükleme
-            uploaded_file = st.file_uploader("Excel Dosyası Seçin", type=["xlsx", "xls"], key="excel_upload")
-            
-            if uploaded_file is not None:
-                if st.button("📥 Verileri Yükle ve Uygula", type="primary", use_container_width=True):
-                    data = load_excel_data(uploaded_file)
-                    if data:
-                        st.session_state.doctors = data["doctors"]
-                        st.session_state.quotas_24h = data["quotas_24h"]
-                        st.session_state.quotas_16h = data["quotas_16h"]
-                        st.session_state.seniority = data["seniority"]
-                        st.session_state.daily_needs_24h = data["daily_needs_24h"]
-                        st.session_state.daily_needs_16h = data["daily_needs_16h"]
-                        st.session_state.manual_constraints = data["manual_constraints"]
-                        st.success("✅ Veriler başarıyla yüklendi!")
-                        time.sleep(1)
-                        st.rerun()
-            
-            st.markdown("**📋 Excel Şablon Yapısı:**")
-            st.markdown("""
-            - **Personel**: İsim, Kıdem, 24h/16h Kotası
-            - **Günlük İhtiyaçlar**: Gün, 24h/16h Sayısı
-            - **İzinler (Matris)**: Satırda Doktor, Sütunda Gün
-              - Hücre: `X`, `S`, `24`, `16` veya boş
-            """)
+        # Şablon İndirme Butonu
+        st.download_button(
+            label="📥 Örnek Şablonu İndir",
+            data=create_excel_template(),
+            file_name=f"Nobetinator_Sablon_{st.session_state.year}_{st.session_state.month}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        
+        st.markdown("---")
+        
+        # Dosya Yükleme
+        uploaded_file = st.file_uploader("Excel Dosyası Seçin", type=["xlsx", "xls"], key="excel_upload")
+        
+        if uploaded_file is not None:
+            if st.button("📥 Verileri Yükle ve Uygula", type="primary", use_container_width=True):
+                data = load_excel_data(uploaded_file)
+                if data:
+                    st.session_state.doctors = data["doctors"]
+                    st.session_state.quotas_24h = data["quotas_24h"]
+                    st.session_state.quotas_16h = data["quotas_16h"]
+                    st.session_state.seniority = data["seniority"]
+                    st.session_state.daily_needs_24h = data["daily_needs_24h"]
+                    st.session_state.daily_needs_16h = data["daily_needs_16h"]
+                    st.session_state.manual_constraints = data["manual_constraints"]
+                    st.success("✅ Veriler başarıyla yüklendi!")
+                    time.sleep(1)
+                    st.rerun()
+        
+        st.markdown("**📋 Excel Şablon Yapısı:**")
+        st.markdown("""
+        - **Personel**: İsim, Kıdem, 24h/16h Kotası
+        - **Günlük İhtiyaçlar**: Gün, 24h/16h Sayısı
+        - **İzinler (Matris)**: Satırda Doktor, Sütunda Gün
+          - Hücre: `X`, `S`, `24`, `16` veya boş
+        """)
     
     st.markdown("---")
     
