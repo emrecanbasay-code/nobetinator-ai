@@ -531,7 +531,7 @@ with tab_const:
                 st.rerun()
 
     st.markdown("---")
-    st.caption("**X** = Kesin İzin (Asla nöbet yazılmaz) | **S** = Esnek İzin (Zorda kalınca yazılabilir) | **24/16** = Sabit Nöbet")
+    st.caption("**X** = Kesin İzin (Asla nöbet yazılmaz) | **S** = Esnek İzin (Zorda kalınca yazılabilir) | **24/16** = Sabit Nöbet|Buraya excelden kopyala yapıştır yaoabilrsiniz X ve S büyük harf olacak")
     
     with st.expander("📋 Detaylı Kısıt Tablosunu Göster", expanded=True):
         grid_data = []
