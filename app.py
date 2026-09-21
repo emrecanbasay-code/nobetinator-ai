@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from ortools.sat.python import cp_model
+from nobet_tani import build_rules, show_failure
+from nobet_on_inceleme import render as render_preview
+from nobet_rotasyon import add_rotation_preferences, rotation_warnings
 import json
 from datetime import datetime
 import calendar
@@ -32,47 +35,36 @@ TURKCE_AYLAR = {
 st.markdown("""
 <style>
     /* GENEL SAYFA YAPISI */
-    .stApp { background-color: #0f172a; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    h1, h2, h3 { color: #f8fafc !important; font-weight: 700; }
-    p, label, span, div { color: #cbd5e1; }
-    [data-testid="stSidebar"] { background-color: #1e293b; border-right: 1px solid #334155; }
+    /* Renkler seçili Streamlit temasından gelir; genel metin rengini ezmeyin. */
+    .stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    h1, h2, h3 { font-weight: 700; }
+    [data-testid="stCaptionContainer"] { opacity: 1; }
     
     /* KART TASARIMI */
     .css-card {
-        background-color: #1e293b;
         padding: 20px;
         border-radius: 12px;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
         margin-bottom: 20px;
     }
     
     /* METRİK KUTULARI */
     div[data-testid="stMetric"] {
-        background-color: #334155;
         border-radius: 8px;
         padding: 10px;
-        border: 1px solid #475569;
     }
-    div[data-testid="stMetricLabel"] > div { color: #94a3b8 !important; font-size: 0.9rem; }
-    div[data-testid="stMetricValue"] > div { color: #38bdf8 !important; font-weight: 700; }
+    div[data-testid="stMetricLabel"] > div { font-size: 0.9rem; }
+    div[data-testid="stMetricValue"] > div { font-weight: 700; }
     
     /* BUTONLAR */
     .stButton>button {
         border-radius: 8px;
         font-weight: 600;
-        border: none;
         transition: all 0.3s ease;
-    }
-    .stButton>button[kind="primary"] {
-        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
     }
     .stButton>button[kind="primary"]:hover { transform: scale(1.02); }
     
     /* TABLO DÜZENİ */
     div[data-testid="stDataEditor"] {
-        border: 1px solid #475569;
         border-radius: 8px;
         overflow: hidden;
     }
@@ -80,16 +72,8 @@ st.markdown("""
     /* SEKME (TAB) TASARIMI */
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
     .stTabs [data-baseweb="tab"] {
-        background-color: #1e293b;
-        border: 1px solid #334155;
         border-radius: 6px;
-        color: #94a3b8;
         padding: 8px 16px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #3b82f6 !important;
-        color: white !important;
-        border-color: #3b82f6 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -120,6 +104,7 @@ if 'quotas_16h' not in st.session_state: st.session_state.quotas_16h = {k["isim"
 if 'seniority' not in st.session_state: st.session_state.seniority = {k["isim"]: "Orta" for k in VARSAYILAN_EKIP}
 if 'manual_constraints' not in st.session_state: st.session_state.manual_constraints = {}
 if 'couples' not in st.session_state: st.session_state.couples = []
+if 'rotation_doctors' not in st.session_state: st.session_state.rotation_doctors = []
 if 'constraint_warnings' not in st.session_state: st.session_state.constraint_warnings = []
 
 def save_current_month_data():
@@ -131,7 +116,8 @@ def save_current_month_data():
         "quotas_16h": st.session_state.quotas_16h.copy(),
         "seniority": st.session_state.seniority.copy(),
         "manual_constraints": st.session_state.manual_constraints.copy(),
-        "couples": st.session_state.couples.copy()
+        "couples": st.session_state.couples.copy(),
+        "rotation_doctors": st.session_state.rotation_doctors.copy()
     }
 
 # DÜZELTME #3: Ay değiştirme - quotas, seniority, couples de sıfırlanıyor
@@ -146,6 +132,7 @@ def load_month_data(y, m):
         st.session_state.seniority = data.get("seniority", {d: "Orta" for d in st.session_state.doctors})
         st.session_state.manual_constraints = data["manual_constraints"]
         st.session_state.couples = data.get("couples", [])
+        st.session_state.rotation_doctors = [d for d in data.get("rotation_doctors", []) if d in st.session_state.doctors]
     else:
         # Yeni ay: tüm veriler varsayılana döner
         st.session_state.daily_needs_24h = {}
@@ -155,6 +142,7 @@ def load_month_data(y, m):
         st.session_state.quotas_16h = {d: 0 for d in st.session_state.doctors}
         st.session_state.seniority = {d: st.session_state.seniority.get(d, "Orta") for d in st.session_state.doctors}
         st.session_state.couples = []
+        st.session_state.rotation_doctors = []
 
 # -----------------------------------------------------------------------------
 # DÜZELTME #8: Excel şablonu cache ile optimize edildi
@@ -272,6 +260,7 @@ def remove_doctor(doc_name):
     st.session_state.quotas_24h.pop(doc_name, None)
     st.session_state.quotas_16h.pop(doc_name, None)
     st.session_state.seniority.pop(doc_name, None)
+    st.session_state.rotation_doctors = [d for d in st.session_state.rotation_doctors if d != doc_name]
     # Manuel kısıtlar temizliği
     keys_to_remove = [k for k in st.session_state.manual_constraints if k.startswith(f"{doc_name}_")]
     for k in keys_to_remove:
@@ -323,6 +312,7 @@ with st.sidebar:
                 data = load_excel_data(uploaded_file)
                 if data:
                     st.session_state.doctors = data["doctors"]
+                    st.session_state.rotation_doctors = [d for d in st.session_state.rotation_doctors if d in data["doctors"]]
                     st.session_state.quotas_24h = data["quotas_24h"]
                     st.session_state.quotas_16h = data["quotas_16h"]
                     st.session_state.seniority = data["seniority"]
@@ -353,6 +343,7 @@ with st.sidebar:
         st.session_state.year = selected_year
         st.session_state.month = selected_month
         load_month_data(selected_year, selected_month)
+        st.session_state.editor_key += 1
         st.rerun()
 
     num_days = calendar.monthrange(selected_year, selected_month)[1]
@@ -417,6 +408,7 @@ with st.sidebar:
             "seniority": st.session_state.seniority,
             "manual_constraints": st.session_state.manual_constraints,
             "couples": st.session_state.couples,
+            "rotation_doctors": st.session_state.rotation_doctors,
             "year": st.session_state.year, "month": st.session_state.month
         }
         st.download_button(
@@ -442,12 +434,16 @@ m4.metric("Evli Çiftler", len(st.session_state.couples), "Senkronize")
 st.write("") 
 
 # Sekme Yapısı
-tab_needs, tab_quotas, tab_const, tab_run = st.tabs([
+tab_preview, tab_needs, tab_quotas, tab_const, tab_run = st.tabs([
+    "🔎 Ön İnceleme",
     "📅 1. Günlük İhtiyaç", 
     "🎯 2. Kota & Kıdem", 
     "⛔ 3. İzin & İstekler", 
     "🚀 4. Oluştur & Sonuç"
 ])
+
+with tab_preview:
+    render_preview(st, rest_days_24h, calc_time, TURKCE_AYLAR)
 
 # --- TAB 1: GÜNLÜK İHTİYAÇ ---
 with tab_needs:
@@ -481,8 +477,8 @@ with tab_needs:
             column_config={
                 "Gün No": st.column_config.NumberColumn(disabled=True),
                 "Tarih": st.column_config.TextColumn(disabled=True),
-                "🔴 24 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=10, step=1),
-                "🟢 16 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=10, step=1)
+                "🔴 24 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=max(10, len(st.session_state.doctors)), step=1),
+                "🟢 16 Saat İhtiyacı": st.column_config.NumberColumn(min_value=0, max_value=max(10, len(st.session_state.doctors)), step=1)
             },
             height=400, 
             key=f"ed_needs_{st.session_state.editor_key}"
@@ -500,6 +496,7 @@ with tab_needs:
 with tab_quotas:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 🎯 Hedef Kotalar ve Kıdem Ayarları")
+    st.caption("Rotasyonda olanları işaretleyin: mümkün olduğunca farklı günlere ve ayda en fazla 2 cumartesi/pazar nöbetine atanırlar (16h ve 24h birlikte sayılır). Esnek tercihlerdir; zorunlu kurallar korunur. Seçimler bu aya aittir.")
     
     # Yeni eklenen doktorların kotalarını kontrol et
     for doc in st.session_state.doctors:
@@ -524,6 +521,7 @@ with tab_quotas:
         data_quota.append({
             "Doktor": doc,
             "Kıdem": st.session_state.seniority.get(doc, "Orta"),
+            "Rotasyonda": doc in st.session_state.rotation_doctors,
             "🔴 Hedef 24h": st.session_state.quotas_24h.get(doc, 0),
             "🟢 Hedef 16h": st.session_state.quotas_16h.get(doc, 0)
         })
@@ -538,11 +536,13 @@ with tab_quotas:
             column_config={
                 "Doktor": st.column_config.TextColumn(disabled=True),
                 "Kıdem": st.column_config.SelectboxColumn(options=["Kıdemli", "Orta", "Çömez"], required=True),
+                "Rotasyonda": st.column_config.CheckboxColumn(default=False),
                 "🔴 Hedef 24h": st.column_config.NumberColumn(min_value=0, max_value=31, step=1),
                 "🟢 Hedef 16h": st.column_config.NumberColumn(min_value=0, max_value=31, step=1)
             }
         )
         if st.form_submit_button("💾 Kotaları ve Kıdemi Kaydet", type="primary"):
+            st.session_state.rotation_doctors = [r["Doktor"] for _, r in edited_quotas.iterrows() if r["Rotasyonda"]]
             for _, r in edited_quotas.iterrows():
                 d = r["Doktor"]
                 st.session_state.quotas_24h[d] = int(r["🔴 Hedef 24h"])
@@ -771,45 +771,13 @@ with tab_run:
             status_text.text("Değişkenler oluşturuluyor...")
             progress_bar.progress(20)
 
-            # 1. TEMEL DEĞİŞKENLER
-            for d in docs:
-                for t in days:
-                    x24[(d,t)] = model.NewBoolVar(f'x24_{d}_{t}')
-                    x16[(d,t)] = model.NewBoolVar(f'x16_{d}_{t}')
-                    model.Add(x24[(d,t)] + x16[(d,t)] <= 1)
-
-            # 2. GÜNLÜK İHTİYAÇLAR
-            for t in days:
-                model.Add(sum(x24[(d,t)] for d in docs) == st.session_state.daily_needs_24h.get(t, 1))
-                model.Add(sum(x16[(d,t)] for d in docs) == st.session_state.daily_needs_16h.get(t, 0))
-                
-            # 3. YASAKLAR VE DİNLENME
-            for d in docs:
-                # Peş peşe gün çalışmama
-                for t in range(1, num_days):
-                    model.Add(x24[(d,t)] + x16[(d,t)] + x24[(d,t+1)] + x16[(d,t+1)] <= 1)
-                
-                # 24h sonrası izin
-                for t_base in range(1, num_days + 1 - rest_days_24h):
-                    block_days = [x24[(d, k)] for k in range(t_base+1, t_base + rest_days_24h + 1)] + \
-                                 [x16[(d, k)] for k in range(t_base+1, t_base + rest_days_24h + 1)]
-                    model.Add(sum(block_days) == 0).OnlyEnforceIf(x24[(d, t_base)])
-
-                # Manuel Kısıtlar (X, S, 24, 16)
-                for t in days:
-                    c = st.session_state.manual_constraints.get(f"{d}_{t}", "")
-                    if c == "24":
-                        model.Add(x24[(d,t)] == 1)
-                    elif c == "16":
-                        model.Add(x16[(d,t)] == 1)
-                    elif c == "X":
-                        model.Add(x24[(d,t)] == 0)
-                        model.Add(x16[(d,t)] == 0)
-                    elif c == "S":
-                        # Esnek İzin: Soft Constraint (düzeltilmiş mantık)
-                        violation = model.NewBoolVar(f'viol_{d}_{t}')
-                        model.AddMaxEquality(violation, [x24[(d,t)], x16[(d,t)]])
-                        soft_violations[(d, t)] = violation
+            # Temel kurallar ve tanılama aynı kural üreticisini kullanır.
+            x24, x16, soft_violations, _, _ = build_rules(
+                model, docs, num_days, rest_days_24h,
+                st.session_state.daily_needs_24h,
+                st.session_state.daily_needs_16h,
+                st.session_state.manual_constraints,
+            )
 
             status_text.text("Evlilik ve Sosyal kurallar işleniyor...")
             progress_bar.progress(40)
@@ -883,6 +851,10 @@ with tab_run:
                     penalties.append(d1 * 5)
             
             # HEDEF FONKSİYON
+            penalties.extend(add_rotation_preferences(
+                model, docs, st.session_state.rotation_doctors,
+                st.session_state.year, st.session_state.month, x24, x16,
+            ))
             model.Minimize(sum(penalties))
 
             status_text.text("AI optimum çözümü arıyor...")
@@ -935,6 +907,20 @@ with tab_run:
                         "🟢 16 Saat Ekibi": ", ".join(l16)
                     })
                 
+                rotation_assignments = {
+                    d: [t for t in days if solver.Value(x24[d, t]) or solver.Value(x16[d, t])]
+                    for d in docs if d in st.session_state.rotation_doctors
+                }
+                rotation_notes = rotation_warnings(
+                    st.session_state.rotation_doctors, st.session_state.year,
+                    st.session_state.month, rotation_assignments,
+                )
+                if rotation_notes:
+                    with st.expander("⚠️ Rotasyon Tercihleri", expanded=True):
+                        st.info("Bulunan listede aşağıdaki rotasyon tercihleri karşılanamadı. Bu tercihler diğer hedeflerle birlikte değerlendirilir; zorunlu kurallar korunmuştur.")
+                        for note in rotation_notes:
+                            st.warning(note)
+
                 # Esnek İzin İhlalleri Uyarısı
                 if warnings:
                     with st.expander("⚠️ Esnek İzin İhlalleri", expanded=True):
@@ -984,8 +970,8 @@ with tab_run:
                 
                 st.markdown("#### 🌈 Renkli Genel Çizelge")
                 def color_map(val):
-                    if val == "24h": return 'background-color: #ef4444; color: white; font-weight: bold'
-                    elif val == "16h": return 'background-color: #22c55e; color: white; font-weight: bold'
+                    if val == "24h": return 'background-color: #b91c1c; color: white; font-weight: bold'
+                    elif val == "16h": return 'background-color: #166534; color: white; font-weight: bold'
                     return ''
                 
                 st.dataframe(df_grid.style.map(color_map), use_container_width=True)
@@ -998,8 +984,9 @@ with tab_run:
                     df_stat.to_excel(writer, sheet_name='Istatistik', index=False)
                     
                     # Uyarılar sayfası
-                    if warnings:
-                        df_warn = pd.DataFrame({"Uyarılar": warnings})
+                    report_warnings = warnings + rotation_notes
+                    if report_warnings:
+                        df_warn = pd.DataFrame({"Uyarılar": report_warnings})
                         df_warn.to_excel(writer, sheet_name='Uyarilar', index=False)
                     
                     # Excel Renklendirme
@@ -1014,51 +1001,11 @@ with tab_run:
                 st.download_button("📥 Excel Raporunu İndir", buf.getvalue(), "Nobetinator_Ai_Final.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
             else:
-                st.error("🚨 Çözüm Bulunamadı! (INFEASIBLE)")
-                st.markdown("---")
-                st.markdown("#### 🔍 Olası Nedenler ve Çözüm Önerileri")
-                
-                # Detaylı neden analizi
-                infeasible_reasons = []
-                
-                # Neden 1: Günlük müsait doktor yetersizliği
-                for t_chk in range(1, num_days+1):
-                    blocked_chk = sum(1 for d in docs if st.session_state.manual_constraints.get(f"{d}_{t_chk}") == "X")
-                    avail_chk = len(docs) - blocked_chk
-                    need_chk = st.session_state.daily_needs_24h.get(t_chk, 1) + st.session_state.daily_needs_16h.get(t_chk, 0)
-                    if avail_chk < need_chk:
-                        infeasible_reasons.append(f"🚨 **{t_chk}. gün**: {need_chk} doktor gerekli ama sadece {avail_chk} müsait ({blocked_chk} kişi izinli). **Çözüm:** {t_chk}. gündeki izinleri azaltın veya günlük ihtiyacı düşürün.")
-                
-                # Neden 2: Peş peşe sabit nöbet çakışması
-                for d in docs:
-                    for t_chk in range(1, num_days):
-                        c1 = st.session_state.manual_constraints.get(f"{d}_{t_chk}", "")
-                        c2 = st.session_state.manual_constraints.get(f"{d}_{t_chk+1}", "")
-                        if c1 in ["24", "16"] and c2 in ["24", "16"]:
-                            infeasible_reasons.append(f"🚨 **{d}**: {t_chk}. ve {t_chk+1}. günlerde peş peşe sabit nöbet var. **Çözüm:** Birini kaldırın.")
-                
-                # Neden 3: Sabit nöbet fazlalığı
-                for t_chk in range(1, num_days+1):
-                    f24 = sum(1 for d in docs if st.session_state.manual_constraints.get(f"{d}_{t_chk}") == "24")
-                    f16 = sum(1 for d in docs if st.session_state.manual_constraints.get(f"{d}_{t_chk}") == "16")
-                    n24 = st.session_state.daily_needs_24h.get(t_chk, 1)
-                    n16 = st.session_state.daily_needs_16h.get(t_chk, 0)
-                    if f24 > n24:
-                        infeasible_reasons.append(f"🚨 **{t_chk}. gün**: {f24} kişiye sabit 24h nöbet atanmış ama ihtiyaç {n24}. **Çözüm:** Fazla sabit nöbeti kaldırın.")
-                    if f16 > n16:
-                        infeasible_reasons.append(f"🚨 **{t_chk}. gün**: {f16} kişiye sabit 16h nöbet atanmış ama ihtiyaç {n16}. **Çözüm:** Fazla sabit nöbeti kaldırın.")
-                
-                # Neden 4: Aşırı izinli doktorlar
-                for d in docs:
-                    doc_x_chk = sum(1 for dd in range(1, num_days+1) if st.session_state.manual_constraints.get(f"{d}_{dd}") == "X")
-                    if doc_x_chk >= num_days * 0.8:
-                        infeasible_reasons.append(f"⚠️ **{d}** ayın {doc_x_chk}/{num_days} gününde izinli. **Çözüm:** Bazı izinleri kaldırın veya esnek izin (S) yapın.")
-                
-                if infeasible_reasons:
-                    for ir in infeasible_reasons:
-                        st.warning(ir)
-                else:
-                    st.warning("Çok fazla kısıt (izinler + dinlenme kuralları) bir araya geldiğinde çözüm bulunamıyor.")
-                    st.info("**Öneriler:** 1️⃣ Bazı kesin izinleri (X) esnek izine (S) çevirin. 2️⃣ Düşünme süresini artırın. 3️⃣ 24h sonrası izin gününü azaltın. 4️⃣ Günlük ihtiyaçları kontrol edin.")
+                show_failure(
+                    st, status, model, docs, num_days, rest_days_24h,
+                    st.session_state.daily_needs_24h,
+                    st.session_state.daily_needs_16h,
+                    st.session_state.manual_constraints,
+                )
 
     st.markdown('</div>', unsafe_allow_html=True)
