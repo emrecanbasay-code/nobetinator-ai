@@ -25,8 +25,8 @@ def build_rules(model, docs, num_days, rest_days, needs24, needs16, manual,
             model.Add(x24[doc, day] + x16[doc, day] <= 1)
     for day in range(1, num_days + 1):
         if free_capacity:
-            rule(sum(x16[doc, day] for doc in docs) <= 1,
-                 f'{day}. gün: en fazla 1 kişi 16 saat nöbet tutabilir.', [day])
+            rule(sum(x16[doc, day] for doc in docs) <= 2,
+                 f'{day}. gün: en fazla 2 kişi 16 saat nöbet tutabilir.', [day])
             continue
         for variables, needs, hours, default in [(x24, needs24, 24, 1), (x16, needs16, 16, 0)]:
             count = int(needs.get(day, default))
