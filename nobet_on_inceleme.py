@@ -156,11 +156,39 @@ def validate_reduction(rows, result, manual):
     return needs24,needs16
 
 
+def export_report(data, result, month_names):
+    """Ön inceleme sonuçlarını Excel raporu baytlarına dönüştürür."""
+    import io
+    import pandas as pd
+    summary = [('Rapor', 'Ön inceleme — aylık nöbet dağılımı'),
+               ('Ay', f"{month_names[data['month']]} {data['year']}"),
+               ('Hedef toplam', result['target']),
+               ('Yazılan toplam', result['assigned']),
+               ('Eksik', result['target'] - result['assigned']),
+               ('En yüksek olduğu kanıtlandı', 'Evet' if result['proven'] else 'Hayır'),
+               ('Günlük kural', 'Her gün en fazla 2 kişi 16 saat nöbet tutabilir.')]
+    daily = [{'Gün': r['day'], 'Tarih': r['date'], '24 saat': r['n24'], '16 saat': r['n16'],
+              'Toplam': r['n24'] + r['n16']} for r in result['rows']]
+    schedule = [{'Gün': r['day'], 'Tarih': r['date'], '24 saat': ', '.join(r['team24']),
+                 '16 saat': ', '.join(r['team16'])} for r in result['rows']]
+    warnings = [f'S izni: {v}' for v in result['violations']] + list(result.get('rotation_warnings', []))
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+        pd.DataFrame(summary, columns=['Alan', 'Değer']).to_excel(writer, sheet_name='Ozet', index=False)
+        pd.DataFrame(daily).to_excel(writer, sheet_name='Gunluk Dagilim', index=False)
+        pd.DataFrame(result['stats']).to_excel(writer, sheet_name='Kisi Bazinda', index=False)
+        pd.DataFrame(schedule).to_excel(writer, sheet_name='Ornek Cizelge', index=False)
+        if warnings:
+            pd.DataFrame({'Uyarılar': warnings}).to_excel(writer, sheet_name='Uyarilar', index=False)
+        writer.sheets['Ornek Cizelge'].set_column(2, 3, 40)
+    return buf.getvalue()
+
+
 def render(st, rest_days, calc_time, month_names):
     import pandas as pd
     ss=st.session_state
     st.subheader('🔎 Ön İnceleme — Aylık Nöbet Dağılımı')
-    st.info('Kota & Kıdem ile İzin & İstekler sekmelerindeki girişlerinizi kaydedin. Günlük ihtiyaç girmeniz gerekmez. Her gün en fazla 1 kişi 16 saat çalışır.')
+    st.info('Kota & Kıdem ile İzin & İstekler sekmelerindeki girişlerinizi kaydedin. Günlük ihtiyaç girmeniz gerekmez. Her gün en fazla 2 kişi 16 saat çalışır.')
     st.caption('Önce yazılabilen toplam nöbet sayısı en yüksek tutulur; ardından esnek izinler ve günlük denge gözetilir. Kotalar aşılmaz. Bu tablo tüm ay için tek bir uygulanabilir dağılımdır; günlerin bağımsız maksimumları değildir.')
     st.caption('Rotasyon seçimleri de değerlendirilir: mümkün olduğunca farklı günler ve kişi başına ayda en fazla 2 cumartesi/pazar nöbeti hedeflenir. Bu esnek tercihler toplam nöbet sayısını azaltmaz.')
     data={'docs':list(ss.doctors),'year':int(ss.year),'month':int(ss.month),'rest':int(rest_days),
@@ -201,6 +229,9 @@ def render(st, rest_days, calc_time, month_names):
         st.warning(f"Hedef {result['target']}, yazılabilen en fazla {result['assigned']}, eksik {result['target']-result['assigned']}. Eksikler aşağıdaki kişi tablosunda.")
     else:
         st.warning(f"Hedef {result['target']}, bu sürede yazılabilen {result['assigned']}. Bunun en yüksek sayı olduğu kanıtlanmadı; süre artırılırsa daha fazlası bulunabilir.")
+    st.download_button('📥 Ön İnceleme Raporunu İndir (Excel)', export_report(data, result, month_names),
+                       f"On_Inceleme_{data['year']}_{data['month']:02d}.xlsx",
+                       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     rows=[{'Tarih':f"{r['day']} {month_names[ss.month]}", '24 saat':r['n24'],'16 saat':r['n16']}
           for r in result['rows']]
     st.caption('Günlük sayıları isterseniz azaltın; ardından günlük ihtiyaçlara aktarın. Azaltınca bazı kotalar eksik kalacaktır.')
@@ -209,7 +240,7 @@ def render(st, rest_days, calc_time, month_names):
                   height=650,key=f"preview_table_{ss.get('preview_revision',0)}",
                   column_config={'Tarih':st.column_config.TextColumn(disabled=True),
                     '24 saat':st.column_config.NumberColumn(min_value=0,max_value=len(data['docs']),step=1,required=True),
-                    '16 saat':st.column_config.NumberColumn(min_value=0,max_value=1,step=1,required=True)})
+                    '16 saat':st.column_config.NumberColumn(min_value=0,max_value=2,step=1,required=True)})
         transfer=st.form_submit_button('Günlük ihtiyaçlara aktar')
     if transfer:
         try:
