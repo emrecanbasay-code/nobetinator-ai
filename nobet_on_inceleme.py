@@ -398,6 +398,7 @@ def render(st, rest_days, calc_time, month_names):
     st.caption('Önce yazılabilen toplam nöbet sayısı en yüksek tutulur; ardından esnek izinler ve günlük denge gözetilir. Kotalar aşılmaz. Bu tablo tüm ay için tek bir uygulanabilir dağılımdır; günlerin bağımsız maksimumları değildir.')
     st.caption('Rotasyon seçimleri de değerlendirilir: mümkün olduğunca farklı günler ve kişi başına ayda en fazla 2 cumartesi/pazar nöbeti hedeflenir. Bu esnek tercihler toplam nöbet sayısını azaltmaz.')
     st.caption('Rotasyona gelenler kenar çubuğundan seçilir: her gün gruptan mümkün olduğunca tek kişi yazılır; zorunlu kurallar gereği aynı güne düşenler uyarı olarak listelenir.')
+    st.caption('Çok karmaşık ve kısıtları çok olan seçimlerde; daha iyi bir sonuç için düşünme süresini mümkün olduğunca yüksek tutmaya çalışın.')
     data={'docs':list(ss.doctors),'year':int(ss.year),'month':int(ss.month),'rest':int(rest_days),
           'q24':dict(ss.quotas_24h),'q16':dict(ss.quotas_16h),'manual':dict(ss.manual_constraints),
           'seniority':dict(ss.seniority),'couples':list(ss.couples),
