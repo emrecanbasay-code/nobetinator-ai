@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from ortools.sat.python import cp_model
 from nobet_tani import build_rules, show_failure
-from nobet_on_inceleme import render as render_preview
-from nobet_rotasyon import add_rotation_preferences, rotation_warnings
+from nobet_on_inceleme import render as render_preview, istek_karsilastirma_satirlari
+from nobet_rotasyon import add_rotation_preferences, rotation_warnings, add_incoming_preferences, incoming_warnings
 import json
 from datetime import datetime
 import calendar
@@ -91,10 +91,11 @@ VARSAYILAN_EKIP = [
     {"isim": "Dr. Veli",  "kota24": 8, "kota16": 0}, {"isim": "Dr. Zeynep",  "kota24": 8, "kota16": 0}
 ]
 
-# Session State Başlatma
+# Session State Başlatma — açılışta varsayılan ay: bir sonraki ay (Aralıkta yıl devreder)
+_simdi = datetime.now()
 if 'doctors' not in st.session_state: st.session_state.doctors = [k["isim"] for k in VARSAYILAN_EKIP]
-if 'year' not in st.session_state: st.session_state.year = datetime.now().year
-if 'month' not in st.session_state: st.session_state.month = datetime.now().month
+if 'year' not in st.session_state: st.session_state.year = _simdi.year + (_simdi.month // 12)
+if 'month' not in st.session_state: st.session_state.month = _simdi.month % 12 + 1
 if 'db' not in st.session_state: st.session_state.db = {}
 if 'editor_key' not in st.session_state: st.session_state.editor_key = 0
 if 'daily_needs_24h' not in st.session_state: st.session_state.daily_needs_24h = {}
@@ -105,6 +106,7 @@ if 'seniority' not in st.session_state: st.session_state.seniority = {k["isim"]:
 if 'manual_constraints' not in st.session_state: st.session_state.manual_constraints = {}
 if 'couples' not in st.session_state: st.session_state.couples = []
 if 'rotation_doctors' not in st.session_state: st.session_state.rotation_doctors = []
+if 'incoming_rotation' not in st.session_state: st.session_state.incoming_rotation = []
 if 'constraint_warnings' not in st.session_state: st.session_state.constraint_warnings = []
 
 def save_current_month_data():
@@ -117,7 +119,8 @@ def save_current_month_data():
         "seniority": st.session_state.seniority.copy(),
         "manual_constraints": st.session_state.manual_constraints.copy(),
         "couples": st.session_state.couples.copy(),
-        "rotation_doctors": st.session_state.rotation_doctors.copy()
+        "rotation_doctors": st.session_state.rotation_doctors.copy(),
+        "incoming_rotation": st.session_state.incoming_rotation.copy()
     }
 
 # DÜZELTME #3: Ay değiştirme - quotas, seniority, couples de sıfırlanıyor
@@ -133,6 +136,7 @@ def load_month_data(y, m):
         st.session_state.manual_constraints = data["manual_constraints"]
         st.session_state.couples = data.get("couples", [])
         st.session_state.rotation_doctors = [d for d in data.get("rotation_doctors", []) if d in st.session_state.doctors]
+        st.session_state.incoming_rotation = [d for d in data.get("incoming_rotation", []) if d in st.session_state.doctors]
     else:
         # Yeni ay: tüm veriler varsayılana döner
         st.session_state.daily_needs_24h = {}
@@ -143,6 +147,7 @@ def load_month_data(y, m):
         st.session_state.seniority = {d: st.session_state.seniority.get(d, "Orta") for d in st.session_state.doctors}
         st.session_state.couples = []
         st.session_state.rotation_doctors = []
+        st.session_state.incoming_rotation = []
 
 # -----------------------------------------------------------------------------
 # DÜZELTME #8: Excel şablonu cache ile optimize edildi
@@ -261,6 +266,7 @@ def remove_doctor(doc_name):
     st.session_state.quotas_16h.pop(doc_name, None)
     st.session_state.seniority.pop(doc_name, None)
     st.session_state.rotation_doctors = [d for d in st.session_state.rotation_doctors if d != doc_name]
+    st.session_state.incoming_rotation = [d for d in st.session_state.incoming_rotation if d != doc_name]
     # Manuel kısıtlar temizliği
     keys_to_remove = [k for k in st.session_state.manual_constraints if k.startswith(f"{doc_name}_")]
     for k in keys_to_remove:
@@ -313,6 +319,7 @@ with st.sidebar:
                 if data:
                     st.session_state.doctors = data["doctors"]
                     st.session_state.rotation_doctors = [d for d in st.session_state.rotation_doctors if d in data["doctors"]]
+                    st.session_state.incoming_rotation = [d for d in st.session_state.incoming_rotation if d in data["doctors"]]
                     st.session_state.quotas_24h = data["quotas_24h"]
                     st.session_state.quotas_16h = data["quotas_16h"]
                     st.session_state.seniority = data["seniority"]
@@ -335,7 +342,7 @@ with st.sidebar:
     
     # DÜZELTME #6: Türkçe ay isimleri kullanılıyor
     c1, c2 = st.columns(2)
-    with c1: selected_year = st.number_input("Yıl", 2024, 2030, st.session_state.year)
+    with c1: selected_year = st.number_input("Yıl", 2024, 2035, st.session_state.year)
     with c2: selected_month = st.selectbox("Ay", range(1, 13), index=st.session_state.month-1, format_func=lambda x: TURKCE_AYLAR[x])
     
     if selected_year != st.session_state.year or selected_month != st.session_state.month:
@@ -351,7 +358,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### ⚙️ Algoritma Ayarları")
     rest_days_24h = st.slider("24s Sonrası İzin (Gün)", 1, 5, 2, help="Nöbetçinin 24 saat nöbetten sonra kaç gün boş kalacağını belirler.")
-    calc_time = st.slider("Düşünme Süresi (sn)", 5, 60, 20, help="AI'nın çözümü araması için maksimum süre.")
+    calc_time = st.slider("Düşünme Süresi (sn)", 5, 120, 20, help="AI'nın çözümü araması için maksimum süre.")
     
     st.markdown("---")
     
@@ -382,6 +389,17 @@ with st.sidebar:
                     st.session_state.couples.pop(i)
                     st.rerun()
 
+    # ROTASYONA GELENLER MODÜLÜ
+    with st.expander("🔁 Rotasyona Gelenler", expanded=False):
+        st.caption("Size rotasyonla gelenleri seçin: her gün bu kişilerden **mümkün olduğunca en fazla 1'i** nöbetçi olur (24h ve 16h birlikte sayılır). Zorunlu kurallar gereği aynı güne yazılırlarsa sonuçta raporlanır. Seçimler bu aya aittir.")
+        secilen_gelenler = st.multiselect(
+            "Gelen kişileri seçin",
+            st.session_state.doctors,
+            default=[d for d in st.session_state.incoming_rotation if d in st.session_state.doctors],
+            key=f"incoming_ms_{st.session_state.editor_key}"
+        )
+        st.session_state.incoming_rotation = secilen_gelenler
+
     with st.expander("👨‍⚕️ Personel İşlemleri"):
         new_doc = st.text_input("Yeni Doktor Adı")
         if st.button("Ekle") and new_doc:
@@ -409,6 +427,7 @@ with st.sidebar:
             "manual_constraints": st.session_state.manual_constraints,
             "couples": st.session_state.couples,
             "rotation_doctors": st.session_state.rotation_doctors,
+            "incoming_rotation": st.session_state.incoming_rotation,
             "year": st.session_state.year, "month": st.session_state.month
         }
         st.download_button(
@@ -496,7 +515,7 @@ with tab_needs:
 with tab_quotas:
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
     st.markdown("#### 🎯 Hedef Kotalar ve Kıdem Ayarları")
-    st.caption("Rotasyonda olanları işaretleyin: mümkün olduğunca farklı günlere ve ayda en fazla 2 cumartesi/pazar nöbetine atanırlar (16h ve 24h birlikte sayılır). Esnek tercihlerdir; zorunlu kurallar korunur. Seçimler bu aya aittir.")
+    st.caption("Rotasyonda olanları (diğer bölümlere gidenleri) işaretleyin: mümkün olduğunca farklı günlere ve ayda en fazla 2 cumartesi/pazar nöbetine atanırlar (16h ve 24h birlikte sayılır). Esnek tercihlerdir; zorunlu kurallar korunur. Seçimler bu aya aittir. Size gelenler için kenar çubuğundaki 'Rotasyona Gelenler' modülünü kullanın.")
     
     # Yeni eklenen doktorların kotalarını kontrol et
     for doc in st.session_state.doctors:
@@ -855,6 +874,10 @@ with tab_run:
                 model, docs, st.session_state.rotation_doctors,
                 st.session_state.year, st.session_state.month, x24, x16,
             ))
+            penalties.extend(add_incoming_preferences(
+                model, docs, st.session_state.incoming_rotation,
+                st.session_state.year, st.session_state.month, x24, x16,
+            ))
             model.Minimize(sum(penalties))
 
             status_text.text("AI optimum çözümü arıyor...")
@@ -921,6 +944,20 @@ with tab_run:
                         for note in rotation_notes:
                             st.warning(note)
 
+                incoming_assignments = {
+                    d: [t for t in days if solver.Value(x24[d, t]) or solver.Value(x16[d, t])]
+                    for d in docs if d in st.session_state.incoming_rotation
+                }
+                incoming_notes = incoming_warnings(
+                    st.session_state.incoming_rotation, st.session_state.year,
+                    st.session_state.month, incoming_assignments,
+                )
+                if incoming_notes:
+                    with st.expander("⚠️ Rotasyona Gelenler — Aynı Gün Atamaları", expanded=True):
+                        st.info("Aşağıdaki günlerde rotasyona gelen kişilerden birden fazlası aynı güne yazıldı. Zorunlu kurallar başka türlü izin vermedi:")
+                        for note in incoming_notes:
+                            st.warning(note)
+
                 # Esnek İzin İhlalleri Uyarısı
                 if warnings:
                     with st.expander("⚠️ Esnek İzin İhlalleri", expanded=True):
@@ -977,14 +1014,24 @@ with tab_run:
                 st.dataframe(df_grid.style.map(color_map), use_container_width=True)
                 
                 # Excel İndirme
+                kars_duties = {}
+                for d in docs:
+                    kars_duties[d] = {}
+                    for t in days:
+                        if solver.Value(x24[(d,t)]): kars_duties[d][t] = '24'
+                        elif solver.Value(x16[(d,t)]): kars_duties[d][t] = '16'
+                df_kars = pd.DataFrame(istek_karsilastirma_satirlari(
+                    docs, st.session_state.manual_constraints, kars_duties,
+                    st.session_state.year, st.session_state.month))
                 buf = io.BytesIO()
                 with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
                     df_list.to_excel(writer, sheet_name='Liste', index=False)
                     df_grid.to_excel(writer, sheet_name='Cizelge', index=False)
                     df_stat.to_excel(writer, sheet_name='Istatistik', index=False)
+                    df_kars.to_excel(writer, sheet_name='Istek Karsilastirma', index=False)
                     
                     # Uyarılar sayfası
-                    report_warnings = warnings + rotation_notes
+                    report_warnings = warnings + rotation_notes + incoming_notes
                     if report_warnings:
                         df_warn = pd.DataFrame({"Uyarılar": report_warnings})
                         df_warn.to_excel(writer, sheet_name='Uyarilar', index=False)
@@ -997,6 +1044,22 @@ with tab_run:
                     
                     ws.conditional_format(1, 1, num_days, len(docs), {'type': 'text', 'criteria': 'containing', 'value': '24h', 'format': fmt_red})
                     ws.conditional_format(1, 1, num_days, len(docs), {'type': 'text', 'criteria': 'containing', 'value': '16h', 'format': fmt_grn})
+
+                    # İstek–nöbet karşılaştırma sayfası biçimleri
+                    ws_kars = writer.sheets['Istek Karsilastirma']
+                    ws_kars.set_column(0, 0, 15)
+                    ws_kars.set_column(1, num_days, 6)
+                    fmt_y = wb.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
+                    fmt_o = wb.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C6500', 'bold': True})
+                    fmt_g = wb.add_format({'bg_color': '#E7E6E6', 'font_color': '#595959'})
+                    fmt_r = wb.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'bold': True})
+                    kars_aralik = (1, 1, len(docs), num_days)
+                    for deger, f in [('"24"', fmt_y), ('"16"', fmt_y), ('"X"', fmt_g), ('"S"', fmt_g)]:
+                        ws_kars.conditional_format(*kars_aralik, {'type': 'cell', 'criteria': '==', 'value': deger,
+                                                                  'format': f, 'stop_if_true': True})
+                    for metin, f in [('S→', fmt_o), ('!', fmt_r), ('→', fmt_r)]:
+                        ws_kars.conditional_format(*kars_aralik, {'type': 'text', 'criteria': 'containing', 'value': metin,
+                                                                  'format': f, 'stop_if_true': True})
                     
                 st.download_button("📥 Excel Raporunu İndir", buf.getvalue(), "Nobetinator_Ai_Final.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 

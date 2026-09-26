@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Portable derleme ciktilari (Streamlit Cloud icin gerekmez)
+dist/
+build/
+*.spec
+
+# Yerel yardimci arac klasorleri
+.agents/
+.claude/
+.zcode/
+.zcodeignore

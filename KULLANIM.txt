@@ -1,0 +1,98 @@
+NOBETINATOR — HATA TANILAMA + AYLIK ON INCELEME
+
+KURULUM
+ZIP içindeki bu üç dosyayı GitHub deponuzun aynı ana klasörüne yükleyin:
+  app.py
+  nobet_tani.py
+  nobet_on_inceleme.py
+Mevcut dosyaları değiştirin. requirements.txt dosyanızı koruyun; yeni bağımlılık yok.
+GitHub deponuz otomatik değiştirilmemiştir.
+
+KULLANIM
+1. Ay/yılı seçin.
+2. Kota & Kıdem sekmesinde kişi başına 24 ve 16 saat sayılarını girip KAYDEDİN.
+3. İzin & İstekler sekmesinde X, S ve sabit nöbetleri girip KAYDEDİN.
+4. Mevcut 24 saat sonrası dinlenme ayarınızı kontrol edin.
+5. Ön İnceleme sekmesinde Ön İnceleme Yap düğmesine basın.
+Günlük ihtiyaçları önceden girmeniz gerekmez; bu hesapta kullanılmaz.
+
+SONUÇ
+Ayın bütün günleri için 24 ve 16 saat nöbetçi sayıları gösterilir.
+Bu, tüm ayda birlikte uygulanabilir bir dağılımdır. Günlerin bağımsız
+maksimumlarını göstermez. Arkasındaki örnek personel çizelgesini açabilirsiniz.
+Kişi bazında hedef, yazılan ve eksik 24/16 saat nöbetler gösterilir.
+Her gün en fazla 2 adet 16 saat nöbetçi vardır. Kota üstüne çıkılmaz.
+Sonuçları "Ön İnceleme Raporunu İndir (Excel)" düğmesiyle Excel olarak alabilirsiniz.
+Excel raporundaki "Kisi Nobetleri" sayfası kişisel matrikstir: satırlarda kişiler,
+sütunlarda ayın günleri (01.10 biçiminde), hücrelerde 24/16 nöbet; en sonda kişi
+başı toplam sütunu vardır (24 kırmızı, 16 yeşil boyanır).
+"Istek Karsilastirma" sayfası isteklerle yazılan nöbetleri tek matrikste birleştirir:
+yeşil 24/16 = nöbet yazıldı (istek yok ya da sabit istek yerine geldi); turuncu
+S→24/16 = esnek izin istenen güne nöbet yazıldı; gri X/S = izin istendi ve nöbet
+yazılmadı (isteğe uyuldu); kırmızı ! veya → = hata durumu (sabit istek yazılmadı
+veya kesin izin gününe nöbet yazıldı; olmaması gerekir). Aynı karşılaştırma Ön
+İnceleme ekranında "İstek – yazılan nöbet karşılaştırması" bölümünde ve ana
+çizelge Excel raporunda da vardır. Bu tablo, Excel'de "boş olanları atla" ile
+üst üste yapıştırarak yapılan karşılaştırmanın otomatik halidir.
+Sabit kayıtlarla kota üst sınırı çelişirse tablo üretmek yerine açıklama verilir.
+
+ÖNCELİKLER
+Önce toplam yazılan nöbet sayısı en yüksek tutulur; kotaların tümü mümkünse tamamlanır.
+Sonra bu toplam azaltılmadan S günlerine atamaları azaltma, günlük sayıları
+dengeleme, eş ve kıdem tercihleri değerlendirilir.
+Günlük asgari ihtiyaç tanımlanmadığından bazı günler sıfır olabilir.
+X izinleri, sabit nöbetler ve dinlenme kuralları otomatik gevşetilmez.
+S esnek izin olduğu için gerekirse nöbet yazılır ve ayrıca gösterilir.
+Süre yeterli değilse sonucun maksimum olduğu iddia edilmez.
+
+AKTARIM
+Tablodaki sayıları azaltabilir, Günlük ihtiyaçlara aktar düğmesine basabilirsiniz.
+Arttırmaya izin verilmez; sabit nöbet sayısının altına azaltılamaz.
+Azaltma sonrası kota eksikleri artabilir. Kişi tablosu hesaplanan ilk dağılımı gösterir.
+Aktarım yalnızca günlük sayıları değiştirir. Sonra Oluştur & Sonuç sekmesinden
+ana çizelgeyi oluşturun. Ana motor farklı kişiler seçebilir; önceki sürümdeki
+esnek kota mantığı ana motorda korunmuştur. Katı kota üst sınırı ön incelemeye aittir.
+Ay, personel, kotalar veya kurallar değişirse ön inceleme yeniden yapılmalıdır.
+Sonuç oturum içinde saklanır; uygulama yeniden başlatılırsa tekrar hesaplanır.
+Önceki/sonraki ay nöbetleri modele dahil değildir.
+
+ONCEKI DESTEK
+Hata tanılama, gün bazında kapasite/atanamama nedenleri, çok günlük kural çelişkileri,
+UNKNOWN/INFEASIBLE ayrımı ve ay sonu dinlenme düzeltmesi korunmuştur.
+
+ROTASYONA GELENLER
+Kenar çubuğundaki "Rotasyona Gelenler" modülünden size rotasyonla gelen kişileri
+seçin (çoklu seçim). Bu kişiler mümkün olduğunca farklı günlere yazılır; her gün
+gruptan en fazla 1 kişi hedeflenir (24 ve 16 saat birlikte sayılır). Zorunlu
+kurallar gerekiyorsa aynı güne yazılırlar; bu durum ana sonuçta ve Excel
+raporundaki Uyarilar sayfasında bildirilir. Ön İnceleme bu tercihi dikkate alır.
+"Rotasyonda" onay kutuları (Kota & Kıdem sekmesi) diğer bölümlere gidenler
+içindir; iki liste birbirinden bağımsızdır, aynı kişi ikisinde de olabilir.
+Seçimler aya özeldir; ay değişince o ayın seçimi yüklenir.
+
+DENGELİ GÜNLÜK DAĞILIM
+Büyük ekiplerde Ön İnceleme günlük nöbetçi sayılarını önce aylık ortalamaya
+sabitler; esnek izin ve diğer tercihler bu denge korunarak iyileştirilir.
+Düşünme süresi dengeyi kurmaya yetmezse sonuç tablosunun üstünde ve Excel
+raporunda uyarı görünür; süreyi artırıp (önerilen en az 10 saniye) tekrar
+deneyin. Dağılım dengeliyse "her gün X–Y nöbetçi" bilgi satırı gösterilir.
+
+PORTABLE SURUM (Nobetinator.exe)
+dist/Nobetinator klasorunun tamami tek basina calisir; Python kurulmamis
+bilgisayarlarda ve USB bellekten dogrudan acilir. Nobetinator.exe'ye cift
+tiklayin: kucuk bir konsol penceresi acilir, ardindan uygulama varsayilan
+tarayicinizda yuklenir (internet gerektirmez, hicbir sey disari acilmaz).
+Uygulamayi kapatmak icin "Nobetinator Ai" baslikli konsol penceresini kapatin.
+Python, OR-Tools ve tum kutuphaneler klasorun icine gomuludur; app.py ve
+nobet_*.py dosyalari EXE'nin yaninda durur. Kod degisirse yeniden paketlemek
+icin: python portable_olustur.py (ardindan dist/Nobetinator yenilenir).
+Kopyalamayi kolaylastirmak icin dist/Nobetinator_Portable.zip de hazirlanir.
+Veri davranisi aynidir: girilen bilgiler oturum boyunca yasamakta, uygulama
+kapaninca kaybolmaktadir; JSON yedegi aliskanligi surdurulmelidir.
+Bazi antivirus programlari imzasiz EXE'leri ilk acilista tarayabilir.
+
+TESTLER
+37 otomatik kontrol geçti (10 tanılama + 8 rotasyon/gelen + 18 ön inceleme + 1 Excel dışa aktarım).
+Streamlit arayüz testi: ayın tüm günleri, kota tamamlama, sonuç kalıcılığı,
+günlük ihtiyaçlara aktarım, ana çizelgenin çözülmesi ve eski sonuç engeli geçti.
+Test edilen ortam: OR-Tools 9.15.6755.
